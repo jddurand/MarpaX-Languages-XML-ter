@@ -5,6 +5,7 @@ use Moops;
 # ABSTRACT: Well-Formed constraint "No < sign in attribute value" implementation
 
 class MarpaX::Languages::XML::Impl::WFC::NoLeftSignInAttributeValue :assertions {
+  use MarpaX::Languages::XML::Type::Dispatcher -all;
   use MarpaX::Languages::XML::Type::PluggableConstant -all;
   use MarpaX::Languages::XML::Role::WFC::NoLeftSignInAttributeValue;
   use MooX::HandlesVia;
@@ -14,7 +15,7 @@ class MarpaX::Languages::XML::Impl::WFC::NoLeftSignInAttributeValue :assertions 
   has subscriptions => (is => 'rwp', isa => HashRef[ArrayRef[Str]],
                         default => sub {
                           return {
-                                  NOTIFY => [ 'AttValue_COMPLETION' ]
+                                  NOTIFY => [ 'AttValue_COMPLETE' ]
                                  };
                         },
                         handles_via => 'Hash',
@@ -24,7 +25,7 @@ class MarpaX::Languages::XML::Impl::WFC::NoLeftSignInAttributeValue :assertions 
                                    }
                        );
 
-  method plugin_register(ConsumerOf['MarpaX::Languages::XML::Role::Dispatcher'] $dispatcher --> PluggableConstant) {
+  method plugin_register(Dispatcher $dispatcher --> PluggableConstant) {
     foreach ($self->keys_subscriptions) {
       my $eventNamesArrayRef = $self->get_subscriptions($_);
       $self->_logger->debugf('%s: Subscribing to %s events %s', __PACKAGE__, $_, $eventNamesArrayRef);
@@ -34,8 +35,12 @@ class MarpaX::Languages::XML::Impl::WFC::NoLeftSignInAttributeValue :assertions 
     return EAT_NONE;
   }
 
-  method N_AttValue_COMPLETION () {
-    print STDERR "OK\n";
+  method N_AttValue_COMPLETE(@args) {
+    # method N_AttValue_COMPLETE(Dispatcher $dispatcher, ArrayRef $argsRef, ArrayRef $extraRef --> PluggableConstant) {
+    use Data::Dumper;
+    print STDERR "==> " . Dumper(\@_);
+
+    return EAT_NONE;
   }
 
   with 'MarpaX::Languages::XML::Role::WFC::NoLeftSignInAttributeValue';

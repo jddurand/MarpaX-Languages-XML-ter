@@ -4,16 +4,11 @@ use Moops;
 
 # ABSTRACT: Well-Formed constraint implementation
 
-class MarpaX::Languages::XML::Impl::WFC {  # dirty becaue of Class::Factory::Util that I could have rewriten
-  use MarpaX::Languages::XML::Impl::PluginsRegister;
+class MarpaX::Languages::XML::Impl::WFC {
+  use MarpaX::Languages::XML::Impl::PluginFactory;
   use MarpaX::Languages::XML::Role::WFC;
   use MarpaX::Languages::XML::Type::Dispatcher -all;
   use MooX::HandlesVia;
-
-  #
-  # Singleton
-  #
-  my $pluginsRegister = MarpaX::Languages::XML::Impl::PluginsRegister->instance;
 
   has dispatcher => (
                      is => 'ro',
@@ -33,7 +28,7 @@ class MarpaX::Languages::XML::Impl::WFC {  # dirty becaue of Class::Factory::Uti
              );
 
   method _trigger_wfc(ArrayRef[Str] $wfc  --> Undef) {
-    return $pluginsRegister->pluginsRegister(__PACKAGE__, $self->dispatcher, $self->elements_wfc);
+    return MarpaX::Languages::XML::Impl::PluginFactory->install(__PACKAGE__, $self->dispatcher, $self->elements_wfc);
   }
 
   with 'MarpaX::Languages::XML::Role::WFC';

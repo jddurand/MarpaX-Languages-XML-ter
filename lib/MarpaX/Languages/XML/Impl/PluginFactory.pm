@@ -2,73 +2,33 @@ use Moops;
 
 # PODCLASSNAME
 
-# ABSTRACT: PluginFactory constraint implementation
+# ABSTRACT: PluginFactory implementation
 
 class MarpaX::Languages::XML::Impl::PluginFactory {
-  use File::Basename qw/fileparse/;
-  use File::Spec::Functions qw/abs2rel catdir canonpath splitdir/;
-  use File::Find qw/find/;
+  use Module::Find qw/findallmod/;
+  use Class::Load qw/try_load_class/;
   use MarpaX::Languages::XML::Role::PluginFactory;
-  use Module::Path qw/module_path/;
-  use Module::Runtime qw/use_package_optimistically/;
-  use MooX::HandlesVia;
-  use MooX::Role::Logger;
-  use Types::Common::String -all;
+  use MarpaX::Languages::XML::Type::Dispatcher -all;
 
-  has fromModule     => ( is => 'ro', isa => Str, default => sub { caller() } );
-  has modulePatterns => ( is => 'ro', isa => ArrayRef[RegexpRef|Str], default => sub { [ qw/\bPlugin\b/ ] },
-                          handles_via => 'Array',
-                          handles     => {
-                                          'elements_modulePatterns' => 'elements'
-                                         }
-                        );
-  has findOptions    => ( is => 'ro', isa => HashRef, default => sub { { no_chdir => 1 } } );
+  #
+  # I suppose a parameterized role would have looked better -;
+  #
 
-  method load_plugins (--> ArrayRef[Str]) {
-    my $modulePath = module_path($self->fromModule);
-    if (Undef->check($modulePath)) {
-      $self->_logger->warnf('Module %s not found', $self->fromModule);
-      return [];
+  method install(ClassName $class: Str $package, Dispatcher $dispatcher, @plugins  --> Undef) {
+    if (grep {$_ eq ':all'} @plugins) {
+      my $packageAndThen = quotemeta($package . '::');
+      @plugins = map { s/^$packageAndThen//; $_; } findallmod($package);
     }
-    my ($moduleFilenameWithoutSuffix, $moduleDirs, $moduleSuffix) = fileparse($modulePath, qr/\.[^.]*/);
-    #
-    # We assume that module's filename (without a suffix) is also a directory
-    #
-    my $fromDir = canonpath(catdir($moduleDirs, $moduleFilenameWithoutSuffix));
-    if (! -d $fromDir) {
-      $self->_logger->tracef('%s: %s', $fromDir, $!);
-      return [];
+    foreach (@plugins) {
+      my $pluginClass = join('::', $package, $_);
+      if (try_load_class($pluginClass)) {
+        $dispatcher->plugin_add($pluginClass, $pluginClass->new);
+      }
     }
-    #
-    # Scan the directory
-    #
-    $self->_logger->tracef('Scanning %s', $fromDir);
-    my @loaded = ();
-    find(sub {
-           my $fullPath = canonpath($File::Find::name);
-           return if (! -e $fullPath || -d _ || -b _);
-
-           my $relativePath = abs2rel($fullPath, $fromDir);
-           my ($relatileFilenameWithoutSuffix, $relativeDirs, $relativeSuffix) = fileparse($relativePath, qr/\.[^.]*/);
-           my @relativeDirs = grep { NonEmptySimpleStr->check($_) } splitdir($relativeDirs);
-           my $moduleName = join('::', $self->fromModule, @relativeDirs, $relatileFilenameWithoutSuffix);
-
-           $self->_logger->tracef('%s ?', $moduleName);
-           return if (! grep {$moduleName =~ $_} $self->elements_modulePatterns);
-
-           my $gotModule = use_package_optimistically($moduleName);
-           if (! $gotModule) {
-             $self->_logger->tracef('%s: %s', $moduleName, 'use_package_optimistically failure');
-           } else {
-             $self->_logger->tracef('%s: %s => %s', $moduleName, 'use_package_optimistically success', $gotModule);
-             push(@loaded, $moduleName);
-           }
-         },  $fromDir);
-    return \@loaded;
+    return;
   }
 
-  with qw/MarpaX::Languages::XML::Role::PluginFactory
-          MooX::Role::Logger/;
+  with 'MarpaX::Languages::XML::Role::PluginFactory';
 }
 
 1;

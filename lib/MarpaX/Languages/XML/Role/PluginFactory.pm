@@ -2,7 +2,7 @@ use Moops;
 
 # PODCLASSNAME
 
-# ABSTRACT: Plugin factory role
+# ABSTRACT: PluginFactory role
 
 role MarpaX::Languages::XML::Role::PluginFactory {
 
@@ -10,7 +10,8 @@ role MarpaX::Languages::XML::Role::PluginFactory {
 
   # AUTHORITY
 
-  requires 'load_plugins';
+  requires 'install';
+
 }
 
 1;
