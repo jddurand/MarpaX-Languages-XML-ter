@@ -24,7 +24,7 @@ class MarpaX::Languages::XML::Impl::PluginFactory {
                         );
   has findOptions    => ( is => 'ro', isa => HashRef, default => sub { { no_chdir => 1 } } );
 
-  method require_plugins (--> ArrayRef[Str]) {
+  method load_plugins (--> ArrayRef[Str]) {
     my $modulePath = module_path($self->fromModule);
     if (Undef->check($modulePath)) {
       $self->_logger->warnf('Module %s not found', $self->fromModule);

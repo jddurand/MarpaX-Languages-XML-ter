@@ -15,7 +15,7 @@ class MarpaX::Languages::XML::Impl::WFC {
   around BUILD {
     $self->${^NEXT}(@_);
     my $pluginFactory = MarpaX::Languages::XML::Impl::PluginFactory->new(fromModule => __PACKAGE__);
-    my @plugins = $pluginFactory->require_plugins;
+    my @plugins = $pluginFactory->load_plugins;
   }
 
   method _trigger_wfc (Bool $wfc, @rest --> Undef) {

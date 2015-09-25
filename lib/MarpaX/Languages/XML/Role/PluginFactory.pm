@@ -10,7 +10,7 @@ role MarpaX::Languages::XML::Role::PluginFactory {
 
   # AUTHORITY
 
-  requires 'require_plugins';
+  requires 'load_plugins';
 }
 
 1;
