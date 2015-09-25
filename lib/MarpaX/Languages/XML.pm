@@ -6,6 +6,8 @@ use Moops;
 
 class MarpaX::Languages::XML {
   use MarpaX::Languages::XML::Impl::Parser;
+  use MarpaX::Languages::XML::Role::PluginFactory;
+  use MarpaX::Languages::XML::Type::Loglevel -all;
   use MooX::Options;
 
   # ---------------------------------------------------------------------------
@@ -31,7 +33,7 @@ class MarpaX::Languages::XML {
                  short => 'w',
                  doc =>
                  "Well-Formed constraints. Repeatable option. Default is \":all\". Other supported values are:\n"
-                 . join("\n",  map {"\t\t$_"} @{MarpaX::Languages::XML::Impl::PluginFactory->list('MarpaX::Languages::XML::Impl::WFC', ':all')})
+                 . join("\n",  map {"\t\t$_"} MarpaX::Languages::XML::Impl::WFC->listAllPlugins('MarpaX::Languages::XML::Impl::WFC'), ':all', ':none')
                  . "\n\tTo completely disable you must pass the option value \":none\", that has lower priority than \":all\"."
                 );
   # ---------------------------------------------------------------------------
@@ -47,9 +49,100 @@ class MarpaX::Languages::XML {
                 short => 'v',
                 doc =>
                  "Validation constraints. Repeatable option. Default is \":all\". Other supported values are:\n"
-                 . join("\n",  map {"\t\t$_"} @{MarpaX::Languages::XML::Impl::PluginFactory->list('MarpaX::Languages::XML::Impl::VC', ':all')})
+                 . join("\n",  map {"\t\t$_"} MarpaX::Languages::XML::Impl::VC->listAllPlugins('MarpaX::Languages::XML::Impl::VC'), ':all', ':none')
                  . "\n\tTo completely disable you must pass the option value \":none\", that has lower priority than \":all\"."
                 );
+  # ---------------------------------------------------------------------------
+  has loglevel => (
+                   is => 'rw',
+                   isa => Loglevel,
+                   default => 'WARN',
+                  );
+
+  # ---------------------------------------------------------------------------
+  # The followings are not used and exist just because of MooX::Options and the
+  # marpaxml executable.
+  # ---------------------------------------------------------------------------
+
+  option debug => (
+                   is => 'rwp',
+                   isa => Bool,
+                   trigger => 1,
+                   #
+                   # Options
+                   #
+                   doc => q{set the log level to DEBUG.}
+                  );
+  method _trigger_debug(Bool $debug) {
+    $self->loglevel('DEBUG') if ($debug);
+  }
+  # ---------------------------------------------------------------------------
+  option info => (
+                   is => 'rwp',
+                   isa => Bool,
+                   trigger => 1,
+                   #
+                   # Options
+                   #
+                   doc => q{set the log level to INFO.}
+                  );
+  method _trigger_info(Bool $info) {
+    $self->loglevel('INFO') if ($info);
+  }
+  # ---------------------------------------------------------------------------
+  option warn => (
+                   is => 'rwp',
+                   isa => Bool,
+                   trigger => 1,
+                   #
+                   # Options
+                   #
+                   doc => q{set the log level to WARN.}
+                  );
+  method _trigger_warn(Bool $warn) {
+    $self->loglevel('WARN') if ($warn);
+  }
+  # ---------------------------------------------------------------------------
+  option error => (
+                   is => 'rwp',
+                   isa => Bool,
+                   trigger => 1,
+                   #
+                   # Options
+                   #
+                   doc => q{set the log level to ERROR.}
+                  );
+  method _trigger_error(Bool $error) {
+    $self->loglevel('ERROR') if ($error);
+  }
+  # ---------------------------------------------------------------------------
+  option fatal => (
+                   is => 'rwp',
+                   isa => Bool,
+                   trigger => 1,
+                   #
+                   # Options
+                   #
+                   doc => q{set the log level to FATAL.}
+                  );
+  method _trigger_fatal(Bool $fatal) {
+    $self->loglevel('FATAL') if ($fatal);
+  }
+  # ---------------------------------------------------------------------------
+  option trace => (
+                   is => 'rwp',
+                   isa => Bool,
+                   trigger => 1,
+                   #
+                   # Options
+                   #
+                   doc => q{set the log level to TRACE.}
+                  );
+  method _trigger_trace(Bool $trace) {
+    $self->loglevel('TRACE') if ($trace);
+  }
+
+  with 'MarpaX::Languages::XML::Role::PluginFactory';
 }
 
 1;

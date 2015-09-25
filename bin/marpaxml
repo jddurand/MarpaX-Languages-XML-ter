@@ -8,6 +8,7 @@ use Log::Log4perl qw/:easy/;
 use POSIX qw/EXIT_FAILURE EXIT_SUCCESS/;
 use Try::Tiny;
 use Types::Standard -all;
+use XML::NamespaceSupport;
 
 # ABSTRACT: Marpa/Moops powered XML parser in Perl
 
@@ -17,42 +18,24 @@ use Types::Standard -all;
 
 # PODNAME: marpaxml
 
-my $loglevel = 'INFO';
-my $logstderr = 0;
-my $loglevel_type = Enum[qw/DEBUG INFO WARN ERROR FATAL TRACE/];
-
-Getopt::Long::Configure(qw/pass_through/);
-if (! GetOptions('loglevel=s' => sub { $loglevel = $loglevel_type->assert_return($_[1]) },
-                 'debug' => sub { $loglevel = 'DEBUG' },
-                 'info' => sub { $loglevel = 'INFO' },
-                 'warn' => sub { $loglevel = 'WARN' },
-                 'error' => sub { $loglevel = 'ERROR' },
-                 'fatal' => sub { $loglevel = 'FATAL' },
-                 'trace' => sub { $loglevel = 'TRACE' },
-                 'logstderr!' => \$logstderr)) {
-  exit(EXIT_FAILURE);
-}
-
-__PACKAGE__->_init($loglevel, $logstderr);
-
-use XML::NamespaceSupport;
-MarpaX::Languages::XML->new_with_options->parser->dispatcher->notify('AttValue_COMPLETE', [ {
-                                                                                             context => 'document',
-                                                                                             lastLexemes => {},
-                                                                                             namespaceSupport => XML::NamespaceSupport->new()
-                                                                                            } ]);
+my $xml = MarpaX::Languages::XML->new_with_options;
+__PACKAGE__->_init_log4perl($xml->loglevel);
+$xml->parser->dispatcher->notify('AttValue_COMPLETE', [ {
+                                                         context => 'document',
+                                                         lastLexemes => {},
+                                                         namespaceSupport => XML::NamespaceSupport->new()
+                                                        } ]);
 
 exit(EXIT_SUCCESS);
 
 ##################################################"
 
-sub _init {
-  my ($class, $loglevel, $logstderr) = @_;
+sub _init_log4perl {
+  my ($class, $loglevel) = @_;
 
   my $defaultLog4perlConf = <<DEFAULT_LOG4PERL_CONF;
 log4perl.rootLogger              = $loglevel, Screen
 log4perl.appender.Screen         = Log::Log4perl::Appender::Screen
-log4perl.appender.Screen.stderr  = $logstderr
 log4perl.appender.Screen.layout  = PatternLayout
 log4perl.appender.Screen.layout.ConversionPattern = %d %-5p %6P %m{chomp}%n
 DEFAULT_LOG4PERL_CONF

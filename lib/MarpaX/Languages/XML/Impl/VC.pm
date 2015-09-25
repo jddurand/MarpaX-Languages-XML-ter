@@ -5,7 +5,7 @@ use Moops;
 # ABSTRACT: Well-Formed constraint implementation
 
 class MarpaX::Languages::XML::Impl::VC {
-  use MarpaX::Languages::XML::Impl::PluginFactory;
+  use MarpaX::Languages::XML::Role::PluginFactory;
   use MarpaX::Languages::XML::Role::VC;
   use MarpaX::Languages::XML::Type::Dispatcher -all;
   use MooX::HandlesVia;
@@ -28,9 +28,10 @@ class MarpaX::Languages::XML::Impl::VC {
              );
 
   method _trigger_vc(ArrayRef[Str] $vc  --> Undef) {
-    return MarpaX::Languages::XML::Impl::PluginFactory->install(__PACKAGE__, $self->dispatcher, $self->elements_vc);
+    return $self->install(__PACKAGE__, $self->dispatcher, $self->elements_vc);
   }
 
+  with 'MarpaX::Languages::XML::Role::PluginFactory';
   with 'MarpaX::Languages::XML::Role::VC';
 }
 

@@ -5,7 +5,7 @@ use Moops;
 # ABSTRACT: Well-Formed constraint implementation
 
 class MarpaX::Languages::XML::Impl::WFC {
-  use MarpaX::Languages::XML::Impl::PluginFactory;
+  use MarpaX::Languages::XML::Role::PluginFactory;
   use MarpaX::Languages::XML::Role::WFC;
   use MarpaX::Languages::XML::Type::Dispatcher -all;
   use MooX::HandlesVia;
@@ -28,9 +28,10 @@ class MarpaX::Languages::XML::Impl::WFC {
              );
 
   method _trigger_wfc(ArrayRef[Str] $wfc  --> Undef) {
-    return MarpaX::Languages::XML::Impl::PluginFactory->install(__PACKAGE__, $self->dispatcher, $self->elements_wfc);
+    return $self->install(__PACKAGE__, $self->dispatcher, $self->elements_wfc);
   }
 
+  with 'MarpaX::Languages::XML::Role::PluginFactory';
   with 'MarpaX::Languages::XML::Role::WFC';
 }
 
