@@ -32,7 +32,7 @@ class MarpaX::Languages::XML {
                  autosplit => ',',
                  short => 'w',
                  doc =>
-                 "Well-Formed constraints. Repeatable option. Default is \":all\". Other supported values are:\n"
+                 "Well-Formed constraints. Repeatable option. Default is \":all\". Supported values are:\n"
                  . join("\n",  map {"\t\t$_"} MarpaX::Languages::XML::Impl::WFC->listAllPlugins('MarpaX::Languages::XML::Impl::WFC'), ':all', ':none')
                  . "\n\tTo completely disable you must pass the option value \":none\", that has lower priority than \":all\"."
                 );
@@ -48,7 +48,7 @@ class MarpaX::Languages::XML {
                 autosplit => ',',
                 short => 'v',
                 doc =>
-                 "Validation constraints. Repeatable option. Default is \":all\". Other supported values are:\n"
+                 "Validation constraints. Repeatable option. Default is \":all\". Supported values are:\n"
                  . join("\n",  map {"\t\t$_"} MarpaX::Languages::XML::Impl::VC->listAllPlugins('MarpaX::Languages::XML::Impl::VC'), ':all', ':none')
                  . "\n\tTo completely disable you must pass the option value \":none\", that has lower priority than \":all\"."
                 );

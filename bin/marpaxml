@@ -21,6 +21,7 @@ use XML::NamespaceSupport;
 my $xml = MarpaX::Languages::XML->new_with_options;
 __PACKAGE__->_init_log4perl($xml->loglevel);
 $xml->parser->dispatcher->notify('AttValue_COMPLETE', [ {
+                                                         origin => 'text',
                                                          context => 'document',
                                                          lastLexemes => {},
                                                          namespaceSupport => XML::NamespaceSupport->new()

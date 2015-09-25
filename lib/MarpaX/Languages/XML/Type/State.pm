@@ -14,6 +14,7 @@ use MarpaX::Languages::XML::Type::NamespaceSupport -all;
 
 declare State,
   as Dict[
+          origin           => Str,
           context          => Context,
           lastLexemes      => LastLexemes,
           namespaceSupport => NamespaceSupport
