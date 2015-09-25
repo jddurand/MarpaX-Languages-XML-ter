@@ -2,23 +2,41 @@ use Moops;
 
 # PODCLASSNAME
 
-# ABSTRACT: Validation constraint implementation
+# ABSTRACT: Well-Formed constraint implementation
 
 class MarpaX::Languages::XML::Impl::VC {
+  use MarpaX::Languages::XML::Impl::PluginsRegister;
   use MarpaX::Languages::XML::Role::VC;
-  use MooX::Object::Pluggable;
-  use MooX::Options;
+  use MarpaX::Languages::XML::Type::Dispatcher -all;
+  use MooX::HandlesVia;
 
-  option vc => ( is => 'rw', isa => Bool, default => true, trigger => 1, short => 'v', negativable => 1, doc => q{Validation constraints. Default to a true value. Option is negativable with '--no-' prefix.} );
+  #
+  # Singleton
+  #
+  my $pluginsRegister = MarpaX::Languages::XML::Impl::PluginsRegister->instance;
 
-  method _trigger_vc (Bool $vc, @rest --> Undef) {
-    if ($vc) {
-      $self->load_plugins();
-    }
-    return;
+  has dispatcher => (
+                     is => 'ro',
+                     isa => Dispatcher,
+                     required => 1
+                    );
+
+  has vc => (
+              is => 'ro',
+              isa => ArrayRef[Str],
+              handles_via => 'Array',
+              handles => {
+                          'elements_vc' => 'elements'
+                         },
+              required => 1,
+              trigger => 1,
+             );
+
+  method _trigger_vc(ArrayRef[Str] $vc  --> Undef) {
+    return $pluginsRegister->pluginsRegister(__PACKAGE__, $self->dispatcher, $self->elements_vc);
   }
 
-  with qw/MarpaX::Languages::XML::Role::VC/;
+  with 'MarpaX::Languages::XML::Role::VC';
 }
 
 1;

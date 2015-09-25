@@ -10,6 +10,7 @@ role MarpaX::Languages::XML::Role::WFC {
 
   # AUTHORITY
 
+  requires 'dispatcher';
   requires 'wfc';
 }
 

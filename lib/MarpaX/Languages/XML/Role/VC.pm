@@ -10,6 +10,7 @@ role MarpaX::Languages::XML::Role::VC {
 
   # AUTHORITY
 
+  requires 'dispatcher';
   requires 'vc';
 }
 

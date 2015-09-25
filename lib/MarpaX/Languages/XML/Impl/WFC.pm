@@ -4,33 +4,39 @@ use Moops;
 
 # ABSTRACT: Well-Formed constraint implementation
 
-class MarpaX::Languages::XML::Impl::WFC {
-  use MarpaX::Languages::XML::Impl::PluginFactory;
+class MarpaX::Languages::XML::Impl::WFC {  # dirty becaue of Class::Factory::Util that I could have rewriten
+  use MarpaX::Languages::XML::Impl::PluginsRegister;
   use MarpaX::Languages::XML::Role::WFC;
-  use MooX::Object::Pluggable;
-  use MooX::Options;
-  use MooX::Role::Logger;
+  use MarpaX::Languages::XML::Type::Dispatcher -all;
+  use MooX::HandlesVia;
 
-  option wfc => ( is => 'rw', isa => Bool, default => true, short => 'w', negativable => 1, doc => q{Well-Formed constraints. Default to a true value. Option is negativable with '--no-' prefix.} );
+  #
+  # Singleton
+  #
+  my $pluginsRegister = MarpaX::Languages::XML::Impl::PluginsRegister->instance;
 
-  around BUILD {
-    $self = $self->${^NEXT}(@_);
-    my $pluginFactory = MarpaX::Languages::XML::Impl::PluginFactory->new(fromModule => __PACKAGE__);
-    my $pluginsArrayRef = $pluginFactory->load_plugins;
-    foreach (@{$pluginsArrayRef}) {
-      print STDERR "$_->new() ?\n";
-      $_->new();
-    }
+  has dispatcher => (
+                     is => 'ro',
+                     isa => Dispatcher,
+                     required => 1
+                    );
+
+  has wfc => (
+              is => 'ro',
+              isa => ArrayRef[Str],
+              handles_via => 'Array',
+              handles => {
+                          'elements_wfc' => 'elements'
+                         },
+              required => 1,
+              trigger => 1,
+             );
+
+  method _trigger_wfc(ArrayRef[Str] $wfc  --> Undef) {
+    return $pluginsRegister->pluginsRegister(__PACKAGE__, $self->dispatcher, $self->elements_wfc);
   }
 
-  method _trigger_wfc (Bool $wfc, @rest --> Undef) {
-    if ($wfc) {
-      $self->load_plugins();
-    }
-    return;
-  }
-
-  with qw/MarpaX::Languages::XML::Role::WFC/;
+  with 'MarpaX::Languages::XML::Role::WFC';
 }
 
 1;
