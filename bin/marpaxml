@@ -1,10 +1,13 @@
 #!perl
-use Moops;
+use Getopt::Long;
 use MarpaX::Languages::XML;
+use Moops;
 use Log::Any qw/$log/;
 use Log::Any::Adapter;
 use Log::Log4perl qw/:easy/;
-use POSIX qw/EXIT_SUCCESS/;
+use POSIX qw/EXIT_FAILURE EXIT_SUCCESS/;
+use Try::Tiny;
+use Types::Standard -all;
 
 # ABSTRACT: Marpa/Moops powered XML parser in Perl
 
@@ -14,19 +17,41 @@ use POSIX qw/EXIT_SUCCESS/;
 
 # PODNAME: marpaxml
 
-# ----
-# Init
-# ----
-my $defaultLog4perlConf = <<DEFAULT_LOG4PERL_CONF;
-log4perl.rootLogger              = TRACE, Screen
-log4perl.appender.Screen         = Log::Log4perl::Appender::Screen
-log4perl.appender.Screen.stderr  = 1
-log4perl.appender.Screen.layout  = PatternLayout
-log4perl.appender.Screen.layout.ConversionPattern = %d %-5p %6P %m{chomp}%n
-DEFAULT_LOG4PERL_CONF
-Log::Log4perl::init(\$defaultLog4perlConf);
-Log::Any::Adapter->set('Log4perl');
+my $loglevel = 'INFO';
+my $logstderr = 0;
+my $loglevel_type = Enum[qw/DEBUG INFO WARN ERROR FATAL TRACE/];
+
+Getopt::Long::Configure(qw/pass_through/);
+if (! GetOptions('loglevel=s' => sub { $loglevel = $loglevel_type->assert_return($_[1]) },
+                 'debug' => sub { $loglevel = 'DEBUG' },
+                 'info' => sub { $loglevel = 'INFO' },
+                 'warn' => sub { $loglevel = 'WARN' },
+                 'error' => sub { $loglevel = 'ERROR' },
+                 'fatal' => sub { $loglevel = 'FATAL' },
+                 'trace' => sub { $loglevel = 'TRACE' },
+                 'logstderr!' => \$logstderr)) {
+  exit(EXIT_FAILURE);
+}
+
+__PACKAGE__->_init($loglevel, $logstderr);
 
 MarpaX::Languages::XML->new_with_options();
 
 exit(EXIT_SUCCESS);
+
+##################################################"
+
+sub _init {
+  my ($class, $loglevel, $logstderr) = @_;
+
+  my $defaultLog4perlConf = <<DEFAULT_LOG4PERL_CONF;
+log4perl.rootLogger              = $loglevel, Screen
+log4perl.appender.Screen         = Log::Log4perl::Appender::Screen
+log4perl.appender.Screen.stderr  = $logstderr
+log4perl.appender.Screen.layout  = PatternLayout
+log4perl.appender.Screen.layout.ConversionPattern = %d %-5p %6P %m{chomp}%n
+DEFAULT_LOG4PERL_CONF
+   Log::Log4perl::init(\$defaultLog4perlConf);
+   Log::Any::Adapter->set('Log4perl');
+}
+

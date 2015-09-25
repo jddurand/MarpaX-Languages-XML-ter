@@ -10,19 +10,19 @@ class MarpaX::Languages::XML::Impl::PluginFactory {
   use File::Find;
   use MarpaX::Languages::XML::Role::PluginFactory;
   use Module::Path qw/module_path/;
+  use Module::Runtime qw/use_package_optimistically/;
   use MooX::HandlesVia;
   use MooX::Role::Logger;
-  use Try::Tiny;
-  use Types::Standard -all;
+  use Types::Common::String -all;
 
-  has fromModule           => ( is => 'ro', isa => Str, default => sub { caller() } );
-  has relativePathPatterns => ( is => 'ro', isa => ArrayRef[RegexpRef|Str], default => sub { [ qw/^Plugin::.+\.pm\z/ ] },
-                                handles_via => 'Array',
-                                handles     => {
-                                                'elements_relativePathPatterns' => 'elements'
-                                               }
-                              );
-  has findOptions          => ( is => 'ro', isa => HashRef, default => sub { { no_chdir => 1 } } );
+  has fromModule     => ( is => 'ro', isa => Str, default => sub { caller() } );
+  has modulePatterns => ( is => 'ro', isa => ArrayRef[RegexpRef|Str], default => sub { [ qw/\bPlugin\b/ ] },
+                          handles_via => 'Array',
+                          handles     => {
+                                          'elements_modulePatterns' => 'elements'
+                                         }
+                        );
+  has findOptions    => ( is => 'ro', isa => HashRef, default => sub { { no_chdir => 1 } } );
 
   method require_plugins (--> ArrayRef[Str]) {
     my $modulePath = module_path($self->fromModule);
@@ -30,27 +30,39 @@ class MarpaX::Languages::XML::Impl::PluginFactory {
       $self->_logger->warnf('Module %s not found', $self->fromModule);
       return [];
     }
-    my ($filename, $dirs, $suffix) = fileparse($modulePath, qr/\.[^.]*/);
+    my ($moduleFilenameWithoutSuffix, $moduleDirs, $moduleSuffix) = fileparse($modulePath, qr/\.[^.]*/);
     #
     # We assume that module's filename (without a suffix) is also a directory
     #
-    my $fromDir = File::Spec->catdir($dirs, $filename);
-    return if (! -d $fromDir);
+    my $fromDir = File::Spec->catdir($moduleDirs, $moduleFilenameWithoutSuffix);
+    if (! -d $fromDir) {
+      $self->_logger->tracef('%s: %s', $fromDir, $!);
+      return [];
+    }
     #
     # Scan the directory
     #
+    $self->_logger->tracef('Scanning %s', $fromDir);
     my @loaded = ();
     find(sub {
            my $fullPath = File::Spec->canonpath($File::Find::name);
            return if (! -e $fullPath || -d _ || -b _);
-           try {
-             require $fullPath;
-             $self->_logger->debugf('%s: %s', $fullPath, 'require ok');
-             push(@loaded, $fullPath);
-           } catch {
-             $self->_logger->debugf('%s: %s', $fullPath, 'require ko');
-             $self->_logger->tracef('%s: %s', $fullPath, $_);
-           };
+
+           my $relativePath = File::Spec->abs2rel($fullPath, $fromDir);
+           my ($relatileFilenameWithoutSuffix, $relativeDirs, $relativeSuffix) = fileparse($relativePath, qr/\.[^.]*/);
+           my @relativeDirs = grep { NonEmptySimpleStr->check($_) } File::Spec->splitdir($relativeDirs);
+           my $moduleName = join('::', $self->fromModule, @relativeDirs, $relatileFilenameWithoutSuffix);
+
+           $self->_logger->tracef('%s ?', $moduleName);
+           return if (! grep {$moduleName =~ $_} $self->elements_modulePatterns);
+
+           my $gotModule = use_package_optimistically($moduleName);
+           if (! $gotModule) {
+             $self->_logger->tracef('%s: %s', $moduleName, 'use_package_optimistically failure');
+           } else {
+             $self->_logger->tracef('%s: %s => %s', $moduleName, 'use_package_optimistically success', $gotModule);
+             push(@loaded, $moduleName);
+           }
          },  $fromDir);
     return \@loaded;
   }
