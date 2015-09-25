@@ -5,9 +5,9 @@ use Moops;
 # ABSTRACT: PluginFactory constraint implementation
 
 class MarpaX::Languages::XML::Impl::PluginFactory {
-  use File::Basename;
-  use File::Spec;
-  use File::Find;
+  use File::Basename qw/fileparse/;
+  use File::Spec::Functions qw/abs2rel catdir canonpath splitdir/;
+  use File::Find qw/find/;
   use MarpaX::Languages::XML::Role::PluginFactory;
   use Module::Path qw/module_path/;
   use Module::Runtime qw/use_package_optimistically/;
@@ -34,7 +34,7 @@ class MarpaX::Languages::XML::Impl::PluginFactory {
     #
     # We assume that module's filename (without a suffix) is also a directory
     #
-    my $fromDir = File::Spec->catdir($moduleDirs, $moduleFilenameWithoutSuffix);
+    my $fromDir = canonpath(catdir($moduleDirs, $moduleFilenameWithoutSuffix));
     if (! -d $fromDir) {
       $self->_logger->tracef('%s: %s', $fromDir, $!);
       return [];
@@ -45,12 +45,12 @@ class MarpaX::Languages::XML::Impl::PluginFactory {
     $self->_logger->tracef('Scanning %s', $fromDir);
     my @loaded = ();
     find(sub {
-           my $fullPath = File::Spec->canonpath($File::Find::name);
+           my $fullPath = canonpath($File::Find::name);
            return if (! -e $fullPath || -d _ || -b _);
 
-           my $relativePath = File::Spec->abs2rel($fullPath, $fromDir);
+           my $relativePath = abs2rel($fullPath, $fromDir);
            my ($relatileFilenameWithoutSuffix, $relativeDirs, $relativeSuffix) = fileparse($relativePath, qr/\.[^.]*/);
-           my @relativeDirs = grep { NonEmptySimpleStr->check($_) } File::Spec->splitdir($relativeDirs);
+           my @relativeDirs = grep { NonEmptySimpleStr->check($_) } splitdir($relativeDirs);
            my $moduleName = join('::', $self->fromModule, @relativeDirs, $relatileFilenameWithoutSuffix);
 
            $self->_logger->tracef('%s ?', $moduleName);
