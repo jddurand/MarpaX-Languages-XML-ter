@@ -29,7 +29,10 @@ class MarpaX::Languages::XML {
                  format => 's@',
                  autosplit => ',',
                  short => 'w',
-                 doc => q{Well-Formed constraints. Repeatable option. Default is ":all". Option is negativable with '--no-' prefix.}
+                 doc =>
+                 "Well-Formed constraints. Repeatable option. Default is \":all\". Other supported values are:\n"
+                 . join("\n",  map {"\t\t$_"} @{MarpaX::Languages::XML::Impl::PluginFactory->list('MarpaX::Languages::XML::Impl::WFC', ':all')})
+                 . "\n\tTo completely disable you must pass the option value \":none\", that has lower priority than \":all\"."
                 );
   # ---------------------------------------------------------------------------
   option vc => (
@@ -42,7 +45,10 @@ class MarpaX::Languages::XML {
                 format => 's@',
                 autosplit => ',',
                 short => 'v',
-                doc => q{Validation constraints. Default is a false value. Default is ":all". Option is negativable with '--no-' prefix.}
+                doc =>
+                 "Validation constraints. Repeatable option. Default is \":all\". Other supported values are:\n"
+                 . join("\n",  map {"\t\t$_"} @{MarpaX::Languages::XML::Impl::PluginFactory->list('MarpaX::Languages::XML::Impl::VC', ':all')})
+                 . "\n\tTo completely disable you must pass the option value \":none\", that has lower priority than \":all\"."
                 );
 }
 

@@ -10,6 +10,7 @@ role MarpaX::Languages::XML::Role::PluginFactory {
 
   # AUTHORITY
 
+  requires 'list';
   requires 'install';
 
 }

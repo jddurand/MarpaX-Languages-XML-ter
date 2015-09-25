@@ -7,6 +7,7 @@ use Moops;
 class MarpaX::Languages::XML::Impl::WFC::NoLeftSignInAttributeValue :assertions {
   use MarpaX::Languages::XML::Type::Dispatcher -all;
   use MarpaX::Languages::XML::Type::PluggableConstant -all;
+  use MarpaX::Languages::XML::Type::State -all;
   use MarpaX::Languages::XML::Role::WFC::NoLeftSignInAttributeValue;
   use MooX::HandlesVia;
   use MooX::Role::Pluggable::Constants;
@@ -35,12 +36,10 @@ class MarpaX::Languages::XML::Impl::WFC::NoLeftSignInAttributeValue :assertions 
     return EAT_NONE;
   }
 
-  method N_AttValue_COMPLETE(@args) {
-    # method N_AttValue_COMPLETE(Dispatcher $dispatcher, ArrayRef $argsRef, ArrayRef $extraRef --> PluggableConstant) {
-    use Data::Dumper;
-    print STDERR "==> " . Dumper(\@_);
+  method N_AttValue_COMPLETE(Dispatcher $dispatcher, Ref $stateRef, @args --> PluggableConstant) {
+    my $state = State->assert_return(${$stateRef});
 
-    return EAT_NONE;
+    return EAT_CLIENT;
   }
 
   with 'MarpaX::Languages::XML::Role::WFC::NoLeftSignInAttributeValue';

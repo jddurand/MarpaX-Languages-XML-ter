@@ -35,7 +35,12 @@ if (! GetOptions('loglevel=s' => sub { $loglevel = $loglevel_type->assert_return
 
 __PACKAGE__->_init($loglevel, $logstderr);
 
-MarpaX::Languages::XML->new_with_options->parser->dispatcher->notify('AttValue_COMPLETE', [ 'arg1', 'arg2' ]);
+use XML::NamespaceSupport;
+MarpaX::Languages::XML->new_with_options->parser->dispatcher->notify('AttValue_COMPLETE', [ {
+                                                                                             context => 'document',
+                                                                                             lastLexemes => {},
+                                                                                             namespaceSupport => XML::NamespaceSupport->new()
+                                                                                            } ]);
 
 exit(EXIT_SUCCESS);
 
