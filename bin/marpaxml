@@ -29,6 +29,7 @@ $xml->parser->dispatcher->notify('AttValue_COMPLETE', [
                                                                                                 namespaceSupport => XML::NamespaceSupport->new()
                                                                                                )
                                                       ]);
+$xml->parser->parse;
 
 exit(EXIT_SUCCESS);
 

@@ -1,7 +1,7 @@
 package MarpaX::Languages::XML::Type::State;
 use Type::Library
   -base,
-  -declare => qw/State DispatchedState/;
+  -declare => qw/State/;
 use Type::Utils -all;
 use Types::Standard -types;
 
