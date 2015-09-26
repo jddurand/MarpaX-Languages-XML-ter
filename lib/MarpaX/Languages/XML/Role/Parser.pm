@@ -10,10 +10,9 @@ role MarpaX::Languages::XML::Role::Parser {
   # AUTHORITY
 
   requires 'xmlVersion';
-  requires 'withNamespace';
+  requires 'xmlns';
   requires 'vc';
   requires 'wfc';
-  requires 'dispatcher';
   requires 'parse';
 }
 

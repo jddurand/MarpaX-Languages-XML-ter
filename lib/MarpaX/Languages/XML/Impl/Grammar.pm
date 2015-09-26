@@ -11,7 +11,6 @@ class MarpaX::Languages::XML::Impl::Grammar {
   use MarpaX::Languages::XML::Type::CompiledGrammar -all;
   use MarpaX::Languages::XML::Type::LexemesRegexp -all;
   use MarpaX::Languages::XML::Type::LexemesExclusionsRegexp -all;
-  use MarpaX::Languages::XML::Type::WithNamespace -all;
   use MarpaX::Languages::XML::Type::XmlVersion -all;
   use MooX::Role::Logger;
 
@@ -19,8 +18,8 @@ class MarpaX::Languages::XML::Impl::Grammar {
   has lexemesRegexp           => ( is => 'ro', isa => LexemesRegexp,                        lazy => 1, builder => 1 );
   has lexemesExclusionsRegexp => ( is => 'ro', isa => LexemesExclusionsRegexp,              lazy => 1, builder => 1 );
   has xmlVersion              => ( is => 'ro', isa => XmlVersion,                           required => 1 );
-  has withNamespace           => ( is => 'ro', isa => WithNamespace,                        required => 1 );
-  has startSymbol             => ( is => 'ro', isa => Str,                                  default => 'document' );
+  has xmlns                   => ( is => 'ro', isa => Bool,                                 required => 1 );
+  has startSymbol             => ( is => 'ro', isa => Str,                                  required => 1 );
 
   has _bnf                    => ( is => 'rw', isa => Str,                                  lazy => 1, builder => 1 );
 
@@ -162,7 +161,7 @@ class MarpaX::Languages::XML::Impl::Grammar {
     );
 
   method _build_compiledGrammar {
-    $self->_logger->debugf('Compiling BNF for XML %s (namespace support: %s, start symbol: %s)', $self->xmlVersion, $self->withNamespace ? 'yes' : 'no', $self->startSymbol);
+    $self->_logger->debugf('Compiling BNF for XML %s (namespace support: %s, start symbol: %s)', $self->xmlVersion, $self->xmlns ? 'yes' : 'no', $self->startSymbol);
     return Marpa::R2::Scanless::G->new({source => \$self->_bnf});
   }
 
@@ -180,7 +179,7 @@ class MarpaX::Languages::XML::Impl::Grammar {
     #
     # Apply namespace changes if any
     #
-    if ($self->withNamespace) {
+    if ($self->xmlns) {
       my $dataSectionXmlnsName = $self->xmlVersion;
       $dataSectionXmlnsName =~ s/\.//;
       $dataSectionXmlnsName = 'xmlns' . $dataSectionXmlnsName;          # i.e. xmlns10 or xmlns11

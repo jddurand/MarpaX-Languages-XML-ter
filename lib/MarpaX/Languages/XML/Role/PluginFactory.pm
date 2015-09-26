@@ -20,13 +20,27 @@ role MarpaX::Languages::XML::Role::PluginFactory {
   }
 
   method listPlugins(Str $package, @plugins) {
-    if (grep {$_ eq ':all'} @plugins) {
-      my $packageAndThen = quotemeta($package . '::');
-      @plugins = map { s/^$packageAndThen//; $_; } findallmod($package);
-    } elsif (grep {$_ eq ':none'} @plugins) {
-      @plugins = ();
+    my @list = ();
+    foreach (@plugins) {
+      if ($_ eq ':all') {
+        my $packageAndThen = quotemeta($package . '::');
+        push(@list, map { s/^$packageAndThen//; $_; } grep { index($_, 'no-') < 0 } findallmod($package));
+      } elsif ($_ eq ':none') {
+        @list = ();
+      } else {
+        if (index($_, 'no-') == 0) {
+          my $exclude = $_;
+          substr($exclude, 0, 3, '');
+          @list = grep { $_ ne $exclude } @list;
+        } else {
+          push(@list, $_);
+        }
+      }
     }
-    return @plugins;
+    my %unique = ();
+    @list = grep { ++$unique{$_} == 1 } @list;
+
+    return @list;
   }
 
   method pluginsAdd(Str $package, Dispatcher $dispatcher, @plugins  --> Bool) {
@@ -39,7 +53,21 @@ role MarpaX::Languages::XML::Role::PluginFactory {
     my $rc = false;
     foreach (@list) {
       my $pluginClass = join('::', $package, $_);
-      my ($success, $errorMessage) = try_load_class($pluginClass);
+      if (index($_, 'no-') == 0) {
+        substr($_, 0, 3, '');
+        $pluginClass = join('::', $package, $_);
+        $self->_logger->tracef('Disable load of %s', $pluginClass);
+      }
+      my ($success, $errorMessage);
+      #
+      # Even if this named "try_xxx" this can croak
+      #
+      try {
+        ($success, $errorMessage) = try_load_class($pluginClass);
+      } catch {
+        $success = 0;
+        $errorMessage = $_;
+      };
       if ($success) {
         $self->_logger->tracef('Success loading %s', $pluginClass);
         $dispatcher->plugin_add($pluginClass, $pluginClass->new);

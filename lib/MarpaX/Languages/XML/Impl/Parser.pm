@@ -13,45 +13,44 @@ class MarpaX::Languages::XML::Impl::Parser {
   use MarpaX::Languages::XML::Type::Dispatcher -all;
   use MarpaX::Languages::XML::Type::Grammar -all;
   use MarpaX::Languages::XML::Type::XmlVersion -all;
-  use MarpaX::Languages::XML::Type::WithNamespace -all;
   use MarpaX::Languages::XML::Type::WFC -all;
   use MarpaX::Languages::XML::Type::VC -all;
+  use MooX::HandlesVia;
 
-  has xmlVersion    => ( is => 'ro', isa => XmlVersion,    default => '1.0' );
-  has withNamespace => ( is => 'ro', isa => WithNamespace, default => false );
-  has vc            => ( is => 'ro', isa => ArrayRef[Str], required => 1, trigger => 1 );
-  has wfc           => ( is => 'ro', isa => ArrayRef[Str], required => 1, trigger => 1 );
-  has dispatcher    => ( is => 'ro', isa => Dispatcher,    lazy => 1, builder => 1 );
+  has xmlVersion   => ( is => 'ro',  isa => XmlVersion,    required => 1 );
+  has xmlns        => ( is => 'ro',  isa => Bool,          required => 1 );
+  has vc           => ( is => 'ro',  isa => ArrayRef[Str], required => 1 );
+  has wfc          => ( is => 'ro',  isa => ArrayRef[Str], required => 1 );
 
-  has _wfcInstance => ( is => 'rwp', isa => WFC );
-  has _vcInstance  => ( is => 'rwp', isa => VC );
-  has _grammar     => ( is => 'rwp', isa => Grammar, lazy => 1, builder => 1 );
+  has _dispatcher  => ( is => 'rwp', isa => Dispatcher,       lazy => 1, builder => 1 );
+  has _wfcInstance => ( is => 'rwp', isa => WFC,              lazy => 1, builder => 1 );
+  has _vcInstance  => ( is => 'rwp', isa => VC,               lazy => 1, builder => 1 );
+  has _grammars    => ( is => 'rwp', isa => HashRef[Grammar], lazy => 1, builder => 1, handles_via => 'Hash', handles => { _get_grammar => 'get' } );
 
-  method _build_dispatcher( --> Dispatcher )  {
+  method _build__dispatcher( --> Dispatcher )  {
     return MarpaX::Languages::XML::Impl::Dispatcher->new();
   }
 
-  method _trigger_wfc(ArrayRef[Str] $wfc --> Undef) {
-    my $wfcInstance = MarpaX::Languages::XML::Impl::WFC->new(dispatcher => $self->dispatcher, wfc => $wfc);
-    $self->_set__wfcInstance($wfcInstance);
-    return;
+  method _build__wfcInstance( --> WFC) {
+    return MarpaX::Languages::XML::Impl::WFC->new(dispatcher => $self->_dispatcher, wfc => $self->wfc);
   }
 
-  method _trigger_vc(ArrayRef[Str] $vc --> Undef) {
-    my $vcInstance = MarpaX::Languages::XML::Impl::VC->new(dispatcher => $self->dispatcher, vc => $vc);
-    $self->_set__vcInstance($vcInstance);
-    return;
+  method _build__vcInstance( --> VC) {
+    return MarpaX::Languages::XML::Impl::VC->new(dispatcher => $self->_dispatcher, vc => $self->wfc);
   }
 
-  method _build__grammar( --> Grammar) {
-    return MarpaX::Languages::XML::Impl::Grammar->new(
-                                                      xmlVersion => $self->xmlVersion,
-                                                      withNamespace => $self->withNamespace
-                                                     );
+  method _build__grammars( --> HashRef[Grammar]) {
+    my %grammars = ();
+    foreach (qw/document prolog element/) {
+      $grammars{$_} = MarpaX::Languages::XML::Impl::Grammar->new(xmlVersion => $self->xmlVersion, xmlns => $self->xmlns, startSymbol => $_);
+    }
+    return \%grammars;
   }
 
   method parse() {
-    my $compiledGrammar = $self->_grammar->compiledGrammar;
+    my $vcInstance      = $self->_vcInstance;
+    my $wfcInstance     = $self->_wfcInstance;
+    my $compiledGrammar = $self->_get_grammar('document')->compiledGrammar;
   }
 
   with qw/MarpaX::Languages::XML::Role::Parser/;

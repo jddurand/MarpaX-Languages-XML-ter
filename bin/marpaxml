@@ -21,14 +21,14 @@ use MarpaX::Languages::XML::Impl::State;
 
 my $xml = MarpaX::Languages::XML->new_with_options;
 __PACKAGE__->_init_log4perl($xml->loglevel);
-$xml->parser->dispatcher->notify('AttValue_COMPLETE', [
-                                                       MarpaX::Languages::XML::Impl::State->new(
-                                                                                                origin => 'text',
-                                                                                                context => 'document',
-                                                                                                lastLexemes => {},
-                                                                                                namespaceSupport => XML::NamespaceSupport->new()
-                                                                                               )
-                                                      ]);
+$xml->parser->_dispatcher->notify('AttValue_COMPLETE', [
+                                                        MarpaX::Languages::XML::Impl::State->new(
+                                                                                                 origin => 'text',
+                                                                                                 context => 'document',
+                                                                                                 lastLexemes => {},
+                                                                                                 namespaceSupport => XML::NamespaceSupport->new()
+                                                                                                )
+                                                       ]);
 $xml->parser->parse;
 
 exit(EXIT_SUCCESS);

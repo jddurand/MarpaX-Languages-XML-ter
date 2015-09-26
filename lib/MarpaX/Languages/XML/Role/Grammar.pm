@@ -14,7 +14,7 @@ role MarpaX::Languages::XML::Role::Grammar {
   requires 'lexemesRegexp';
   requires 'lexemesExclusionsRegexp';
   requires 'xmlVersion';
-  requires 'withNamespace';
+  requires 'xmlns';
   requires 'startSymbol';
 }
 
