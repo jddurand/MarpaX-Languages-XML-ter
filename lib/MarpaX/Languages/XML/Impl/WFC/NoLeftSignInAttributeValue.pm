@@ -29,7 +29,7 @@ class MarpaX::Languages::XML::Impl::WFC::NoLeftSignInAttributeValue :assertions 
   method plugin_register(Dispatcher $dispatcher --> PluggableConstant) {
     foreach ($self->keys_subscriptions) {
       my $eventNamesArrayRef = $self->get_subscriptions($_);
-      $self->_logger->debugf('%s: Subscribing to %s events %s', __PACKAGE__, $_, $eventNamesArrayRef);
+      $self->_logger->tracef('%s: Subscribing to %s events %s', __PACKAGE__, $_, $eventNamesArrayRef);
       $dispatcher->subscribe($self, $_, @{$eventNamesArrayRef});
     }
 

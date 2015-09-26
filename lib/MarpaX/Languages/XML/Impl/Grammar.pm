@@ -161,7 +161,7 @@ class MarpaX::Languages::XML::Impl::Grammar {
     );
 
   method _build_compiledGrammar {
-    $self->_logger->debugf('Compiling BNF for XML %s (namespace support: %s, start symbol: %s)', $self->xmlVersion, $self->xmlns ? 'yes' : 'no', $self->startSymbol);
+    $self->_logger->tracef('Compiling BNF for XML %s (namespace support: %s, start symbol: %s)', $self->xmlVersion, $self->xmlns ? 'yes' : 'no', $self->startSymbol);
     return Marpa::R2::Scanless::G->new({source => \$self->_bnf});
   }
 
