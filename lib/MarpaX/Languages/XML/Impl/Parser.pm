@@ -8,6 +8,7 @@ class MarpaX::Languages::XML::Impl::Parser {
   use MarpaX::Languages::XML::Impl::Grammar;
   use MarpaX::Languages::XML::Impl::Dispatcher;
   use MarpaX::Languages::XML::Impl::IO;
+  use MarpaX::Languages::XML::Impl::Encoding;
   use MarpaX::Languages::XML::Impl::WFC;
   use MarpaX::Languages::XML::Impl::VC;
   use MarpaX::Languages::XML::Role::Parser;
