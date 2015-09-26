@@ -13,7 +13,6 @@ class MarpaX::Languages::XML::Impl::Parser {
   use MarpaX::Languages::XML::Role::Parser;
   use MarpaX::Languages::XML::Type::Dispatcher -all;
   use MarpaX::Languages::XML::Type::Grammar -all;
-  use MarpaX::Languages::XML::Type::IO -all;
   use MarpaX::Languages::XML::Type::XmlVersion -all;
   use MarpaX::Languages::XML::Type::WFC -all;
   use MarpaX::Languages::XML::Type::VC -all;
@@ -32,7 +31,6 @@ class MarpaX::Languages::XML::Impl::Parser {
   has _wfcInstance => ( is => 'rwp', isa => WFC,              lazy => 1, builder => 1 );
   has _vcInstance  => ( is => 'rwp', isa => VC,               lazy => 1, builder => 1 );
   has _grammars    => ( is => 'rwp', isa => HashRef[Grammar], lazy => 1, builder => 1, handles_via => 'Hash', handles => { _get_grammar => 'get' } );
-  has _io          => ( is => 'rwp', isa => IO,               lazy => 1, builder => 1 );
 
   method _build__dispatcher( --> Dispatcher )  {
     return MarpaX::Languages::XML::Impl::Dispatcher->new();
@@ -54,16 +52,12 @@ class MarpaX::Languages::XML::Impl::Parser {
     return \%grammars;
   }
 
-  method _build__io( --> IO )  {
-    return MarpaX::Languages::XML::Impl::IO->new();
-  }
-
-  method parse(Str $input) {
+  method parse(Str $source) {
     my $vcInstance      = $self->_vcInstance;
     my $wfcInstance     = $self->_wfcInstance;
     my $compiledGrammar = $self->_get_grammar('document')->compiledGrammar;
 
-    $self->_io->open($input);
+    my $io = MarpaX::Languages::XML::Impl::IO->new(source => $source);
   }
 
   with 'MarpaX::Languages::XML::Role::Parser';

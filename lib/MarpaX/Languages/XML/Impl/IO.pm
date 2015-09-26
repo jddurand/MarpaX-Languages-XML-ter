@@ -20,29 +20,32 @@ class MarpaX::Languages::XML::Impl::IO {
 
   # AUTHORITY
 
+  has source            => ( is => 'ro', isa => Str, required => 1, trigger => 1 );
+
   has _io               => ( is => 'rw', isa => InstanceOf['IO::All'] );
-  has _source           => ( is => 'rw', isa => Str, predicate => 1 );
   has _block_size_value => ( is => 'rw', isa => Int, default => 1024 );
 
-  method DEMOLISH {
-    $self->close() if ($self->_has_source);
+  method _trigger_source(Str $source --> Undef) {
+    $self->_open($source);
   }
 
-  method open(Str $source, @args --> IO) {
+  method DEMOLISH {
+    $self->_close();
+  }
+
+  method _open(Str $source, @args --> Undef) {
 
     $self->_logger->tracef('Opening %s %s', $source, \@args);
+    $self->_io(io($source))->open(@args);
 
-    $self->_source($source);
-    $self->_io(io($self->_source))->open(@args);
-
-    return $self;
+    return;
   }
 
-  method close( --> IO) {
-    $self->_logger->tracef('Closing %s', $self->_source);
+  method _close( --> Undef) {
+    $self->_logger->tracef('Closing %s', $self->source);
     $self->_io->close();
 
-    return $self;
+    return;
   }
 
   method block_size(@args --> IO) {
@@ -136,7 +139,7 @@ class MarpaX::Languages::XML::Impl::IO {
         if ($self->tell != $pos) {
           IOException->throw(
                              sprintf('Failure setting position from %d to %d failure', $tell, $pos),
-                             source => $self->_source
+                             source => $self->source
                             );
         } else {
           $pos_ok = 1;

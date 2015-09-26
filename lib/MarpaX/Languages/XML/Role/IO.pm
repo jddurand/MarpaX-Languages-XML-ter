@@ -10,7 +10,7 @@ role MarpaX::Languages::XML::Role::IO {
 
   # AUTHORITY
 
-  requires 'open';
+  requires 'source';
   requires 'block_size';
   requires 'block_size_value';
   requires 'binary';
@@ -22,7 +22,6 @@ role MarpaX::Languages::XML::Role::IO {
   requires 'length';
   requires 'encoding';
   requires 'buffer';
-  requires 'close';
 
 }
 
