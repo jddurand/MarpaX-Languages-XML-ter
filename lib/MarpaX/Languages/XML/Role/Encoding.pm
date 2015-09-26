@@ -10,7 +10,9 @@ role MarpaX::Languages::XML::Role::Encoding {
 
   # AUTHORITY
 
+  requires 'value';
   requires 'bytes';
+  requires 'byteStart';
   requires 'merge_with_encodingFromXmlProlog';
 
 }

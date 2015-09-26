@@ -13,7 +13,9 @@ role MarpaX::Languages::XML::Role::Parser {
   requires 'xmlns';
   requires 'vc';
   requires 'wfc';
+  requires 'blockSize';
   requires 'parse';
+  requires 'rc';
 }
 
 1;

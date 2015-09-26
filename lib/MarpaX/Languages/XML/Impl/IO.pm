@@ -23,7 +23,7 @@ class MarpaX::Languages::XML::Impl::IO {
   has source            => ( is => 'ro', isa => Str, required => 1, trigger => 1 );
 
   has _io               => ( is => 'rw', isa => InstanceOf['IO::All'] );
-  has _block_size_value => ( is => 'rw', isa => Int, default => 1024 );
+  has _block_size_value => ( is => 'rw', isa => PositiveInt, default => 1024 );
 
   method _trigger_source(Str $source --> Undef) {
     $self->_open($source);
@@ -55,12 +55,12 @@ class MarpaX::Languages::XML::Impl::IO {
     return $self;
   }
 
-  method block_size_value(@args --> IO) {
+  method block_size_value(@args --> PositiveInt) {
 
     my $rc = $self->_block_size_value(@args);
     $self->_logger->tracef('%s block-size %s %s', @args ? 'Setting' : 'Getting', @args ? '->' : '<-', $rc);
 
-    return $self;
+    return $rc;
   }
 
   method binary( --> IO) {
@@ -123,7 +123,7 @@ class MarpaX::Languages::XML::Impl::IO {
 
   method encoding(Str $encoding --> IO) {
 
-    $self->_logger->tracef('Setting encoding %s', $encoding);
+    $self->_logger->tracef('Setting encoding "%s"', $encoding);
     $self->_io->encoding($encoding);
 
     return $self;

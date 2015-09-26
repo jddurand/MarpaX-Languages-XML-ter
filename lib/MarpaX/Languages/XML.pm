@@ -9,6 +9,7 @@ class MarpaX::Languages::XML {
   use MarpaX::Languages::XML::Type::Loglevel -all;
   use MarpaX::Languages::XML::Type::XmlVersion -all;
   use MooX::Options protect_argv => 0;;
+  use Types::Common::Numeric -all;
 
   # ---------------------------------------------------------------------------
   has parser => (
@@ -18,7 +19,11 @@ class MarpaX::Languages::XML {
                  builder => 1
                 );
   method _build_parser (--> InstanceOf['MarpaX::Languages::XML::Impl::Parser']) {
-    return MarpaX::Languages::XML::Impl::Parser->new(xmlVersion => $self->xml, xmlns => $self->xmlns, wfc => $self->wfc, vc => $self->vc);
+    return MarpaX::Languages::XML::Impl::Parser->new(xmlVersion => $self->xml,
+                                                     xmlns      => $self->xmlns,
+                                                     wfc        => $self->wfc,
+                                                     vc         => $self->vc,
+                                                     blockSize  => $self->blocksize);
   }
   # ---------------------------------------------------------------------------
   option wfc => (
@@ -86,6 +91,18 @@ class MarpaX::Languages::XML {
                    #
                    negativable => 1,
                    doc => q{Namespace support. Default is a true value. Say --no-xmlns to disable.}
+                  );
+  # ---------------------------------------------------------------------------
+  option blocksize => (
+                       is => 'ro',
+                       isa => PositiveInt,
+                       default => 1024 * 1024,
+                       #
+                       # Options
+                       #
+                       format => 'i',
+                       short => 'b',
+                       doc => q{I/O block length. At the very beginning this really mean bytes, and when encoding is determined this mean number of characters. Default value is 1M. Must be a positive value.}
                   );
 }
 
