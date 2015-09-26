@@ -8,7 +8,7 @@ class MarpaX::Languages::XML {
   use MarpaX::Languages::XML::Impl::Parser;
   use MarpaX::Languages::XML::Type::Loglevel -all;
   use MarpaX::Languages::XML::Type::XmlVersion -all;
-  use MooX::Options;
+  use MooX::Options protect_argv => 0;;
 
   # ---------------------------------------------------------------------------
   has parser => (
@@ -74,7 +74,7 @@ class MarpaX::Languages::XML {
                  #
                  format => 's',
                  short => 'x',
-                 doc => q{Force XML Version. Default is "1.0". Supported values: "1.0" and "1.1".}
+                 doc => q{XML Version hint. Default is "1.0". Supported values: "1.0" and "1.1". If the parser detect another version it will automatically switch.}
                 );
   # ---------------------------------------------------------------------------
   option xmlns => (
