@@ -29,7 +29,7 @@ role MarpaX::Languages::XML::Role::PluginFactory {
     return @plugins;
   }
 
-  method install(Str $package, Dispatcher $dispatcher, @plugins  --> Bool) {
+  method pluginsAdd(Str $package, Dispatcher $dispatcher, @plugins  --> Bool) {
     my @list = $self->listPlugins($package, @plugins);
     if (! @list) {
       $self->_logger->tracef('No subclass for %s', $package);
@@ -39,12 +39,13 @@ role MarpaX::Languages::XML::Role::PluginFactory {
     my $rc = false;
     foreach (@list) {
       my $pluginClass = join('::', $package, $_);
-      if (try_load_class($pluginClass)) {
+      my ($success, $errorMessage) = try_load_class($pluginClass);
+      if ($success) {
         $self->_logger->tracef('Success loading %s', $pluginClass);
         $dispatcher->plugin_add($pluginClass, $pluginClass->new);
         $rc = true;
       } else {
-        $self->_logger->tracef('Failure to load %s', $pluginClass);
+        $self->_logger->tracef('Failure to load %s: %s', $pluginClass, $errorMessage);
       }
     }
     return $rc;

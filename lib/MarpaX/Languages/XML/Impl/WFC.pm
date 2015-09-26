@@ -28,7 +28,7 @@ class MarpaX::Languages::XML::Impl::WFC {
              );
 
   method _trigger_wfc(ArrayRef[Str] $wfc  --> Undef) {
-    return $self->install(__PACKAGE__, $self->dispatcher, $self->elements_wfc);
+    return $self->pluginsAdd(__PACKAGE__, $self->dispatcher, $self->elements_wfc);
   }
 
   with 'MarpaX::Languages::XML::Role::PluginFactory';

@@ -9,6 +9,7 @@ use POSIX qw/EXIT_FAILURE EXIT_SUCCESS/;
 use Try::Tiny;
 use Types::Standard -all;
 use XML::NamespaceSupport;
+use MarpaX::Languages::XML::Impl::State;
 
 # ABSTRACT: Marpa/Moops powered XML parser in Perl
 
@@ -20,12 +21,14 @@ use XML::NamespaceSupport;
 
 my $xml = MarpaX::Languages::XML->new_with_options;
 __PACKAGE__->_init_log4perl($xml->loglevel);
-$xml->parser->dispatcher->notify('AttValue_COMPLETE', [ {
-                                                         origin => 'text',
-                                                         context => 'document',
-                                                         lastLexemes => {},
-                                                         namespaceSupport => XML::NamespaceSupport->new()
-                                                        } ]);
+$xml->parser->dispatcher->notify('AttValue_COMPLETE', [
+                                                       MarpaX::Languages::XML::Impl::State->new(
+                                                                                                origin => 'text',
+                                                                                                context => 'document',
+                                                                                                lastLexemes => {},
+                                                                                                namespaceSupport => XML::NamespaceSupport->new()
+                                                                                               )
+                                                      ]);
 
 exit(EXIT_SUCCESS);
 

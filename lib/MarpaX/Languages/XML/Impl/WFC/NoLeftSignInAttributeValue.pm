@@ -36,12 +36,16 @@ class MarpaX::Languages::XML::Impl::WFC::NoLeftSignInAttributeValue :assertions 
     return EAT_NONE;
   }
 
-  method N_AttValue_COMPLETE(Dispatcher $dispatcher, Ref $stateRef, @args --> PluggableConstant) {
-    my $state = State->assert_return(${$stateRef});
-
+  method N_AttValue_COMPLETE(Dispatcher $dispatcher, State $state, ArrayRef $extraRef --> PluggableConstant) {
     return EAT_CLIENT;
   }
-
+  #
+  # The way MooX::Role::Pluggable works is loosing sub-types
+  # I do not know yet how to fix that -;
+  #
+  around N_AttValue_COMPLETE(Dispatcher $dispatcher, Ref $stateRef, ArrayRef $extraRef --> PluggableConstant) {
+    return $self->${^NEXT}($dispatcher, State->assert_return(${$stateRef}), $extraRef);
+  }
   with 'MarpaX::Languages::XML::Role::WFC::NoLeftSignInAttributeValue';
   with 'MooX::Role::Logger';
 }

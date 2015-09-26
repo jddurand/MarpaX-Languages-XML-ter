@@ -28,7 +28,7 @@ class MarpaX::Languages::XML::Impl::VC {
              );
 
   method _trigger_vc(ArrayRef[Str] $vc  --> Undef) {
-    return $self->install(__PACKAGE__, $self->dispatcher, $self->elements_vc);
+    return $self->pluginsAdd(__PACKAGE__, $self->dispatcher, $self->elements_vc);
   }
 
   with 'MarpaX::Languages::XML::Role::PluginFactory';

@@ -1,7 +1,7 @@
 package MarpaX::Languages::XML::Type::State;
 use Type::Library
   -base,
-  -declare => qw/State StateRef/;
+  -declare => qw/State DispatchedState/;
 use Type::Utils -all;
 use Types::Standard -types;
 use MarpaX::Languages::XML::Type::Context -all;
@@ -12,15 +12,7 @@ use MarpaX::Languages::XML::Type::NamespaceSupport -all;
 
 # AUTHORITY
 
-declare State,
-  as Dict[
-          origin           => Str,
-          context          => Context,
-          lastLexemes      => LastLexemes,
-          namespaceSupport => NamespaceSupport
-         ];
+declare State, as ConsumerOf['MarpaX::Languages::XML::Role::State'];
 
-declare StateRef,
-  as Ref[State]
 ;
 1;
