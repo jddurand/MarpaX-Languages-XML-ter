@@ -52,12 +52,16 @@ class MarpaX::Languages::XML::Impl::Parser {
     return \%grammars;
   }
 
-  method parse(Str $source) {
+  method parse(Str $source --> Int) {
     my $vcInstance      = $self->_vcInstance;
     my $wfcInstance     = $self->_wfcInstance;
     my $compiledGrammar = $self->_get_grammar('document')->compiledGrammar;
 
     my $io = MarpaX::Languages::XML::Impl::IO->new(source => $source);
+
+    my $rc = 0;
+
+    return $rc;
   }
 
   with 'MarpaX::Languages::XML::Role::Parser';
