@@ -10,11 +10,8 @@ role MarpaX::Languages::XML::Role::Encoding {
 
   # AUTHORITY
 
-  requires 'bom';
-  requires 'bom_size';
-
-  requires 'guess';
-  requires 'analyse_bom';
+  requires 'bytes';
+  requires 'merge_with_encodingFromXmlProlog';
 
 }
 

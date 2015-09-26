@@ -12,120 +12,129 @@ class MarpaX::Languages::XML::Impl::Encoding {
   use Throwable::Factory
     GuessException    => undef
     ;
+  use MooX::HandlesVia;
   use Types::Common::Numeric -all;
 
   # VERSION
 
   # AUTHORITY
 
-  has bom      => ( is => 'rwp', isa => Str );
-  has bom_size => ( is => 'rwp', isa => PositiveOrZeroInt );
+  has bytes    => ( is => 'ro',  isa => Str, required => 1, trigger => 1);
 
-  method analyse_bom(Str $bytes --> Encoding) {
+  has _bom      => ( is => 'rw', isa => Str, handles_via => 'String', handles => { _length__bom  => 'length' } );
+  has _guess    => ( is => 'rw', isa => Str, handles_via => 'String', handles => { _length__guess => 'length' } );
+  has _bom_size => ( is => 'rw', isa => PositiveOrZeroInt);
 
-    my $bom = '';
-    my $bom_size = 0;
+  method _trigger_bytes(Str $bytes --> Undef) {
+    $self->_bom_from_bytes();
+    $self->_guess_from_bytes();
+    return;
+  }
 
+  method _bom_from_bytes(Str $bytes --> Undef) {
+
+    $self->_set_bom('');
+    $self->_set_bom_size(0);
     #
     # 5 bytes
     #
     if ($bytes =~ m/^\x{2B}\x{2F}\x{76}\x{38}\x{2D}/) { # If no following character is encoded, 38 is used for the fourth byte and the following byte is 2D
-      $bom = 'UTF-7';
-      $bom_size = 5;
+      $self->_set_bom('UTF-7');
+      $self->_set_bom_size(5);
     }
     #
     # 4 bytes
     #
     elsif ($bytes =~ m/^(?:\x{2B}\x{2F}\x{76}\x{38}|\x{2B}\x{2F}\x{76}\x{39}|\x{2B}\x{2F}\x{76}\x{2B}|\x{2B}\x{2F}\x{76}\x{2F})/s) { # 3 bytes + all possible values of the 4th byte
-      $bom = 'UTF-7';
-      $bom_size = 4;
+      $self->_set_bom('UTF-7');
+      $self->_set_bom_size(4);
     }
     elsif ($bytes =~ m/^(?:\x{00}\x{00}\x{FF}\x{FE}|\x{FE}\x{FF}\x{00}\x{00})/s) { # UCS-4, unusual octet order (2143 or 3412)
-      $bom = 'UCS-4';
-      $bom_size = 4;
+      $self->_set_bom('UCS-4');
+      $self->_set_bom_size(4);
     }
     elsif ($bytes =~ m/^\x{00}\x{00}\x{FE}\x{FF}/s) { # UCS-4, big-endian machine (1234 order)
-      $bom = 'UTF-32BE';
-      $bom_size = 4;
+      $self->_set_bom('UTF-32BE');
+      $self->_set_bom_size(4);
     }
     elsif ($bytes =~ m/^\x{FF}\x{FE}\x{00}\x{00}/s) { # UCS-4, little-endian machine (4321 order)
-      $bom = 'UTF-32LE';
-      $bom_size = 4;
+      $self->_set_bom('UTF-32LE');
+      $self->_set_bom_size(4);
     }
     elsif ($bytes =~ m/^\x{DD}\x{73}\x{66}\x{73}/s) {
-      $bom = 'UTF-EBCDIC';
-      $bom_size = 4;
+      $self->_set_bom('UTF-EBCDIC');
+      $self->_set_bom_size(4);
     }
     elsif ($bytes =~ m/^\x{84}\x{31}\x{95}\x{33}/s) {
-      $bom = 'GB-18030';
-      $bom_size = 4;
+      $self->_set_bom('GB-18030');
+      $self->_set_bom_size(4);
     }
     #
     # 3 bytes
     #
     elsif ($bytes =~ m/^\x{EF}\x{BB}\x{BF}/s) { # UTF-8
-      $bom = 'UTF-8';
-      $bom_size = 3;
+      $self->_set_bom('UTF-8');
+      $self->_set_bom_size(3);
     }
     elsif ($bytes =~ m/^\x{F7}\x{64}\x{4C}/s) {
-      $bom = 'UTF-1';
-      $bom_size = 3;
+      $self->_set_bom('UTF-1');
+      $self->_set_bom_size(3);
     }
     elsif ($bytes =~ m/^\x{0E}\x{FE}\x{FF}/s) { # Signature recommended in UTR #6
-      $bom = 'SCSU';
-      $bom_size = 3;
+      $self->_set_bom('SCSU');
+      $self->_set_bom_size(3);
     }
     elsif ($bytes =~ m/^\x{FB}\x{EE}\x{28}/s) {
-      $bom = 'BOCU-1';
-      $bom_size = 3;
+      $self->_set_bom('BOCU-1');
+      $self->_set_bom_size(3);
     }
     #
     # 2 bytes
     #
     elsif ($bytes =~ m/^\x{FE}\x{FF}/s) { # UTF-16, big-endian
-      $bom = 'UTF-16BE';
-      $bom_size = 2;
+      $self->_set_bom('UTF-16BE');
+      $self->_set_bom_size(2);
     }
     elsif ($bytes =~ m/^\x{FF}\x{FE}/s) { # UTF-16, little-endian
-      $bom = 'UTF-16LE';
-      $bom_size = 2;
+      $self->_set_bom('UTF-16LE');
+      $self->_set_bom_size(2);
     }
 
-    if (length($bom) > 0) {
-      $self->_logger->tracef('BOM says: \'%s\' using %d bytes', $bom, $bom_size);
+    if ($self->_length__bom > 0) {
+      $self->_logger->tracef('BOM says: \'%s\' using %d bytes', $self->bom, $self->bom_size);
     } else {
       $self->_logger->tracef('No information from BOM');
     }
 
-    return $self;
+    return;
   }
 
-  method guess(Str $bytes --> Str) {
+  method _guess_from_bytes(Str $bytes --> Undef) {
     #
     # Do ourself common guesses
     #
-    my $name = '';
+    $self->_set_guess('');
     if ($bytes =~ /^\x{00}\x{00}\x{00}\x{3C}/) { # '<' in UTF-32BE
-      $name = 'UTF-32BE';
+      $self->_set_guess('UTF-32BE');
     }
     elsif ($bytes =~ /^\x{3C}\x{00}\x{00}\x{00}/) { # '<' in UTF-32LE
-      $name = 'UTF-32LE';
+      $self->_set_guess('UTF-32LE');
     }
     elsif ($bytes =~ /^\x{00}\x{3C}\x{00}\x{3F}/) { # '<?' in UTF-16BE
-      $name = 'UTF-16BE';
+      $self->_set_guess('UTF-16BE');
     }
     elsif ($bytes =~ /^\x{3C}\x{00}\x{3F}\x{00}/) { # '<?' in UTF-16LE
-      $name = 'UTF-16LE';
+      $self->_set_guess('UTF-16LE');
     }
     elsif ($bytes =~ /^\x{3C}\x{3F}\x{78}\x{6D}/) { # '<?xml' in US-ASCII
-      $name = 'ASCII';
+      $self->_set_guess('ASCII');
     }
 
-    if (! $name) {
+    if ($self->_length__guess <= 0) {
       my $is_ebcdic = $Config{'ebcdic'} || '';
       if ($is_ebcdic eq 'define') {
         $self->_logger->tracef('Encode::Guess not supported on EBCDIC platform');
-        return $name;
+        return;
       }
 
       my @suspect_list = ();
@@ -144,75 +153,73 @@ class MarpaX::Languages::XML::Impl::Encoding {
         if (! defined($enc) || ! ref($enc)) {
           GuessException->throw($enc || 'unknown encoding');
         }
-        $name = uc($enc->name || '');
+        $self->_set_guess(uc($enc->name || ''));
       } catch {
         $self->_logger->tracef('Encoding guess failure, %s', $_);
       }
     }
 
-    if ($name eq 'ASCII') {
+    if ($self->guess eq 'ASCII') {
       #
-      # Ok, ascii is UTF-8 compatible. Let's say UTF-8.
+      # Ok, ASCII is UTF-8 compatible. Let's say UTF-8 - much more probable
       #
-      $self->_logger->tracef('Revisiting %s guess to UTF-8', $name);
-      $name = 'UTF-8';
+      $self->_logger->tracef('Revisiting %s guess to UTF-8', $self->guess);
+      $self->_set_guess('UTF-8');
     }
 
-    if (length($name) > 0) {
-      $self->_logger->tracef('Guess encoding \'%s\'', $name);
+    if ($self->_length__guess > 0) {
+      $self->_logger->tracef('Guess encoding \'%s\'', $self->guess);
     } else {
       $self->_logger->tracef('No encoding guess');
     }
 
-    return $name;
+    return;
   }
 
-  method final(Str $bom_encoding, Str $guess_encoding, Str $xml_encoding --> Str) {
+  method merge_with_encodingFromXmlProlog(Str $encodingFromXmlProlog --> Str) {
 
-    $self->_logger->tracef('BOM says \'%s\', guess says \'%s\', XML says \'%s\'', $bom_encoding, $guess_encoding, $xml_encoding);
-
-    my $final_encoding;
-    if (! $bom_encoding) {
-      if (! $guess_encoding || ! $xml_encoding) {
-        $final_encoding = 'UTF-8';
+    my $finalEncoding;
+    if ($self->_length__bom <= 0) {
+      if (($self->_length__guess <= 0) || length($encodingFromXmlProlog) <= 0) {
+        $finalEncoding = 'UTF-8';
       } else {
         #
         # General handling of 'LE' and 'BE' extensions
         #
-        if (($guess_encoding eq "${xml_encoding}BE") || ($guess_encoding eq "${xml_encoding}LE")) {
-          $final_encoding = $guess_encoding;
+        if (($self->_guess eq uc("${encodingFromXmlProlog}BE")) || ($self->_guess eq uc("${encodingFromXmlProlog}LE"))) {
+          $finalEncoding = $self->_guess;
         } else {
-          $final_encoding = $xml_encoding;
+          $finalEncoding = $encodingFromXmlProlog;
         }
       }
     } else {
-      if ($bom_encoding eq 'UTF-8') {
+      if ($self->_bom eq 'UTF-8') {
         #
         # Why trusting a guess when it is only a guess.
         #
-        # if (($guess_encoding ne '') && ($guess_encoding ne 'UTF-8')) {
-        #   $self->_logger->errorf('BOM encoding \'%s\' disagree with guessed encoding \'%s\'', $bom_encoding, $xml_encoding);
+        # if (($self->_length__guess > 0) && ($self->_guess ne 'UTF-8')) {
+        #   $self->_logger->errorf('BOM encoding "%s" disagree with guessed encoding "%s"', $self->_bom, $encodingFromXmlProlog);
         # }
-        if (($xml_encoding ne '') && ($xml_encoding ne 'UTF-8')) {
-          GuessException->throw("BOM encoding '$bom_encoding' disagree with XML encoding '$xml_encoding");
+        if ((length($encodingFromXmlProlog) > 0) && (uc($encodingFromXmlProlog) ne 'UTF-8')) {
+          GuessException->throw("BOM encoding '" . $self->_bom . "' disagree with XML encoding '$encodingFromXmlProlog");
         }
       } else {
-        if ($bom_encoding =~ /^(.*)[LB]E$/) {
-          my $without_le_or_be = ($+[1] > $-[1]) ? substr($bom_encoding, $-[1], $+[1] - $-[1]) : '';
-          if (($xml_encoding ne '') && ($xml_encoding ne $without_le_or_be) && ($xml_encoding ne $bom_encoding)) {
-            GuessException->throw("BOM encoding '$bom_encoding' disagree with XML encoding '$xml_encoding");
+        if ($self->_bom =~ /^(.*)[LB]E$/) {
+          my $without_le_or_be = ($+[1] > $-[1]) ? substr($self->_bom, $-[1], $+[1] - $-[1]) : '';
+          if ((length($encodingFromXmlProlog) > 0) && (uc($encodingFromXmlProlog) ne $without_le_or_be) && (uc($encodingFromXmlProlog) ne $self->_bom)) {
+            GuessException->throw("BOM encoding '" . $self->_bom . "' disagree with XML encoding '$encodingFromXmlProlog");
           }
         }
       }
       #
       # In any case, BOM win. So we always inherit the correct $byte_start.
       #
-      $final_encoding = $bom_encoding;
+      $finalEncoding = $self->_bom;
     }
 
-    $self->_logger->tracef('Final encoding guess is \'%s\'', $final_encoding);
+    $self->_logger->tracef('BOM says "%s", guess says "%s", XML says "%s": merge says "%s"', $self->_bom, $self->_guess, $encodingFromXmlProlog, $finalEncoding);
 
-    return $final_encoding;
+    return $finalEncoding;
   }
 
   with 'MarpaX::Languages::XML::Role::Encoding';
