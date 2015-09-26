@@ -13,6 +13,7 @@ class MarpaX::Languages::XML::Impl::Grammar {
   use MarpaX::Languages::XML::Type::LexemesExclusionsRegexp -all;
   use MarpaX::Languages::XML::Type::WithNamespace -all;
   use MarpaX::Languages::XML::Type::XmlVersion -all;
+  use MooX::Role::Logger;
 
   has compiledGrammar         => ( is => 'ro', isa => InstanceOf['Marpa::R2::Scanless::G'], lazy => 1, builder => 1 );
   has lexemesRegexp           => ( is => 'ro', isa => LexemesRegexp,                        lazy => 1, builder => 1 );
@@ -161,6 +162,7 @@ class MarpaX::Languages::XML::Impl::Grammar {
     );
 
   method _build_compiledGrammar {
+    $self->_logger->debugf('Compiling BNF for XML %s (namespace support: %s, start symbol: %s)', $self->xmlVersion, $self->withNamespace ? 'yes' : 'no', $self->startSymbol);
     return Marpa::R2::Scanless::G->new({source => \$self->_bnf});
   }
 
@@ -183,7 +185,6 @@ class MarpaX::Languages::XML::Impl::Grammar {
       $dataSectionXmlnsName =~ s/\.//;
       $dataSectionXmlnsName = 'xmlns' . $dataSectionXmlnsName;          # i.e. xmlns10 or xmlns11
 
-      my $dataSectionXmlns             = ${$PACKAGE_DATA->sectionData($dataSectionXmlnsName)};
       my $dataSectionXmlnsAdd          = ${$PACKAGE_DATA->sectionData($dataSectionXmlnsName . ':add')};
       my $dataSectionXmlnsReplaceOrAdd = ${$PACKAGE_DATA->sectionData($dataSectionXmlnsName . ':replace_or_add')};
       #
@@ -223,6 +224,7 @@ class MarpaX::Languages::XML::Impl::Grammar {
   }
 
   with 'MarpaX::Languages::XML::Role::Grammar';
+  with 'MooX::Role::Logger';
 }
 
 1;

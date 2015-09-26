@@ -43,7 +43,7 @@ class MarpaX::Languages::XML::Impl::Parser {
     return;
   }
 
-  method _build__grammar {
+  method _build__grammar( --> Grammar) {
     return MarpaX::Languages::XML::Impl::Grammar->new(
                                                       xmlVersion => $self->xmlVersion,
                                                       withNamespace => $self->withNamespace
