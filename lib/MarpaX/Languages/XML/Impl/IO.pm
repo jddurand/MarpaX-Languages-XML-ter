@@ -20,10 +20,10 @@ class MarpaX::Languages::XML::Impl::IO {
 
   # AUTHORITY
 
-  has source            => ( is => 'ro', isa => Str, required => 1, trigger => 1 );
+  has source            => ( is => 'ro',  isa => Str,  required => 1, trigger => 1 );
 
-  has _io               => ( is => 'rw', isa => InstanceOf['IO::All'] );
-  has _block_size_value => ( is => 'rw', isa => PositiveInt, default => 1024 );
+  has _io               => ( is => 'rw',  isa => InstanceOf['IO::All'] );
+  has _block_size_value => ( is => 'rw',  isa => PositiveInt, default => 1024 );
 
   method _trigger_source(Str $source --> Undef) {
     $self->_open($source);
@@ -95,6 +95,10 @@ class MarpaX::Languages::XML::Impl::IO {
 
       return $self;
     }
+  }
+
+  method eof( --> Bool) {
+    return $self->_io->eof;
   }
 
   method clear( --> IO) {

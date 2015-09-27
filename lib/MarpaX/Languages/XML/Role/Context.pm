@@ -12,6 +12,7 @@ role MarpaX::Languages::XML::Role::Context {
 
   requires 'io';
   requires 'grammar';
+  requires 'dispatcher';
   requires 'encoding';
   requires 'recognizer';
   requires 'pos';
@@ -19,6 +20,7 @@ role MarpaX::Languages::XML::Role::Context {
   requires 'column';
   requires 'lastLexemes';
   requires 'namespaceSupport';
+  requires 'callbackSaidStop';
 }
 
 1;

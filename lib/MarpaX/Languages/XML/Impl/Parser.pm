@@ -49,13 +49,19 @@ class MarpaX::Languages::XML::Impl::Parser {
   has _wfcInstance   => ( is => 'rw',  isa => WFC,               lazy => 1, builder => 1 );
   has _vcInstance    => ( is => 'rw',  isa => VC,                lazy => 1, builder => 1 );
   has _eventInstance => ( is => 'rw',  isa => GrammarEvent,      lazy => 1, builder => 1 );
-  #
-  # The following is just to avoid rebuilding grammars everytime
-  #
   has _grammars      => ( is => 'rw',  isa => HashRef[Grammar],  lazy => 1, builder => 1, handles_via => 'Hash', handles => { _get_grammar => 'get' } );
-
+  #
+  # The followings are just to avoid creating them more than once
+  #
   method _build__dispatcher( --> Dispatcher )  {
     return MarpaX::Languages::XML::Impl::Dispatcher->new();
+  }
+  method _build__grammars( --> HashRef[Grammar]) {
+    my %grammars = ();
+    foreach (qw/document prolog element/) {
+      $grammars{$_} = MarpaX::Languages::XML::Impl::Grammar->new(xmlVersion => $self->xmlVersion, xmlns => $self->xmlns, startSymbol => $_);
+    }
+    return \%grammars;
   }
 
   method _build__wfcInstance( --> WFC) {
@@ -70,20 +76,13 @@ class MarpaX::Languages::XML::Impl::Parser {
     return MarpaX::Languages::XML::Impl::Grammar::Event->new(dispatcher => $self->_dispatcher, event => [qw/:all/]);
   }
 
-  method _build__grammars( --> HashRef[Grammar]) {
-    my %grammars = ();
-    foreach (qw/document prolog element/) {
-      $grammars{$_} = MarpaX::Languages::XML::Impl::Grammar->new(xmlVersion => $self->xmlVersion, xmlns => $self->xmlns, startSymbol => $_);
-    }
-    return \%grammars;
-  }
-
   method parse(Str $source --> Int) {
     #
     # Prepare variables to build the context
     #
     my $io               = MarpaX::Languages::XML::Impl::IO->new(source => $source);
     my $grammar          = $self->_get_grammar('document');
+    my $dispatcher       = $self->_dispatcher;
     #
     # We want to handle buffer direcly with no COW: we could either pass it in
     # parameters or localize it. I choose localization so that method signatures
@@ -95,7 +94,7 @@ class MarpaX::Languages::XML::Impl::Parser {
     #
     # Create context
     #
-    my $context = MarpaX::Languages::XML::Impl::Context->new(io => $io, grammar => $grammar);
+    my $context = MarpaX::Languages::XML::Impl::Context->new(io => $io, grammar => $grammar, dispatcher => $dispatcher);
     #
     # Go
     #
@@ -131,7 +130,6 @@ class MarpaX::Languages::XML::Impl::Parser {
     foreach (qw/ENCNAME_COMPLETED XMLDECL_START_COMPLETED XMLDECL_END_COMPLETED VERSIONNUM_COMPLETED ELEMENT_START_COMPLETED/) {
       $recognizer->activate($_, 1);
     }
-
     return $self;
   }
 
@@ -145,79 +143,49 @@ class MarpaX::Languages::XML::Impl::Parser {
 
 1;
 __DATA__
-method _generic_parse(Context $context, Str $endEventName, Bool $eolHandling, Bool $resume --> Parser) {
+method _generic_parse(Context $context, Recognizer $r, Str $endEventName, Bool $eolHandling, Bool $resume --> Parser) {
   #
   # Start recognizer if not resuming
   #
-  my $r;
-  if (! $context->has_recognizer) {
-    $r->read(\'  ') if (! $resume);
-    #
-    # Create a State compatible hash
-    #
+  $r->read(\'  ') if (! $resume);
   #
   # Variables that need initialization
   #
-  my $global_pos       = $self->{_global_pos};
-  my $LineNumber       = $self->{LineNumber};
-  my $ColumnNumber     = $self->{ColumnNumber};
-  my $pos              = $self->{_pos};
-  my $length           = $self->{_length};
-  my $remaining        = $self->{_remaining};
-  my @lexeme_match_by_symbol_ids     = $grammar->elements_lexeme_match_by_symbol_ids;
-  my @lexeme_exclusion_by_symbol_ids = $grammar->elements_lexeme_exclusion_by_symbol_ids;
-  my $previous_can_stop = 0;
-  my $_XMLNSCOLON_ID   = $grammar->scanless->symbol_by_name_hash->{'_XMLNSCOLON'};
-  my $_XMLNS_ID        = $grammar->scanless->symbol_by_name_hash->{'_XMLNS'};
-  my $eol_impl         = $grammar->eol_impl;
+  my $io                             = $context->io;
+  my $line                           = $context->line;
+  my $column                         = $context->column;
+  my $pos                            = $context->pos;
+  my $dispatcher                     = $context->dispatcher;
+  my $length                         = length($MarpaX::Languages::XML::Impl::Parser::buffer);
+  my $remaining                      = $length - $pos;
+  my @lexeme_match_by_symbol_ids     = $grammar->elements_lexemesRegexpBySymbolId;
+  my @lexeme_exclusion_by_symbol_ids = $grammar->elements_lexemesExclusionsRegexpBySymbolId;
+  my $previous_can_stop              = 0;
+  my $_XMLNSCOLON_ID                 = $grammar->compiledGrammar->symbol_by_name_hash->{'_XMLNSCOLON'};
+  my $_XMLNS_ID                      = $grammar->compiledGrammar->symbol_by_name_hash->{'_XMLNS'};
   #
   # Infinite loop until user says to stop or error
   #
   while (1) {
-    my @event_names = map { $_->[0] } @{$r->events()};
+    my @event_names                      = map { $_->[0] } @{$r->events()};
     my @terminals_expected_to_symbol_ids = $r->terminals_expected_to_symbol_ids();
-    if ($MarpaX::Languages::XML::Impl::Parser::is_debug) {
-      #
-      # If trace if on, then debug is on
-      #
-      $self->_logger->tracef("$LOG_LINECOLUMN_FORMAT_HERE Pos: %d, Length: %d, Remaining: %d", $LineNumber, $ColumnNumber, $pos, $length, $remaining) if ($MarpaX::Languages::XML::Impl::Parser::is_trace);
-      if ($self->_remaining > 0) {
-        my $data = hexdump(data => substr($_[1], $pos, 16),
-                           suppress_warnings => 1,
-                           space_as_space    => 1
-                          );
-        my $nbzeroes = ($data =~ s/( 00)(?= (?::|00))/   /g);
-        if ($nbzeroes) {
-          $data =~ s/\.{$nbzeroes}$//;
-        }
-        $self->_logger->debugf("$LOG_LINECOLUMN_FORMAT_HERE [.....] %s", $LineNumber, $ColumnNumber, $data);
-      } else {
-        $self->_logger->debugf("$LOG_LINECOLUMN_FORMAT_HERE [.....] %s", $LineNumber, $ColumnNumber, 'none');
-      }
-      if ($MarpaX::Languages::XML::Impl::Parser::is_trace) {
-        $self->_logger->tracef("$LOG_LINECOLUMN_FORMAT_HERE %s/%s/%s: Events                : %s", $LineNumber, $ColumnNumber, $grammar->spec, $grammar->xml_version, $grammar->start, \@event_names);
-        $self->_logger->tracef("$LOG_LINECOLUMN_FORMAT_HERE %s/%s/%s: Expected terminals    : %s", $LineNumber, $ColumnNumber, $grammar->spec, $grammar->xml_version, $grammar->start, $r->terminals_expected());
-        $self->_logger->tracef("$LOG_LINECOLUMN_FORMAT_HERE %s/%s/%s: Expected terminals IDs: %s", $LineNumber, $ColumnNumber, $grammar->spec, $grammar->xml_version, $grammar->start, \@terminals_expected_to_symbol_ids);
-      }
-    }
     #
     # First the events
     #
     my $can_stop = 0;
     foreach (@event_names) {
       #
-      # The end event name ?
+      # Catch the end event name
       #
-      $can_stop = 1 if ($_ eq $end_event_name);
+      $can_stop = 1 if ($_ eq $endEventName);
       #
-      # Callback ?
+      # Dispatch events
       #
-      my $code = $callbacks_ref->{$_};
+      $dispatcher->notify($_, $context);
       #
-      # A callback has no other argument but the buffer, the recognizer and the grammar
-      # Take care: in our model, any true value in return will mean immediate stop
+      # Return if one of the callbacks said stop
       #
-      return if ($code && $self->$code($_[1], $r, $grammar));
+      return if ($context->callbackSaidStop);
     }
     #
     # Then the expected lexemes
@@ -233,18 +201,14 @@ method _generic_parse(Context $context, Str $endEventName, Bool $eolHandling, Bo
         # Note: all our patterns are compiled with the /p modifier for perl < 5.20
         #
         # We use an optimized version to bypass the the Marpa::R2::Grammar::symbol_name call
-        if ($_[1] =~ $lexeme_match_by_symbol_ids[$_]) {
+        #
+        if ($MarpaX::Languages::XML::Impl::Parser::buffer =~ $lexeme_match_by_symbol_ids[$_]) {
           my $matched_data = ${^MATCH};
           my $length_matched_data = length($matched_data);
           #
           # Match reaches end of buffer ?
           #
-          if ((($pos + $length_matched_data) >= $length) && ! $self->{_eof}) { # Match up to the end of buffer is avoided as much as possible
-            $self->_logger->tracef("$LOG_LINECOLUMN_FORMAT_HERE Lexeme %s (%s) is reaching end-of-buffer",
-                                   $LineNumber,
-                                   $ColumnNumber,
-                                   $_,
-                                   $grammar->scanless->symbol_name($_)) if ($MarpaX::Languages::XML::Impl::Parser::is_trace);
+          if ((($pos + $length_matched_data) >= $length) && ! $io->eof) { # Match up to the end of buffer is avoided as much as possible
             my $old_remaining = $remaining;
             $remaining = $self->_reduceAndRead($_[1], $r, $pos, $length, \$pos, \$length, $grammar, $eol, $eol_impl);
             if ($remaining > $old_remaining) {

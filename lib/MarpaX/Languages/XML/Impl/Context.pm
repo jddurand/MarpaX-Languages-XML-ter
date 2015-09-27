@@ -6,6 +6,7 @@ use Moops;
 
 class MarpaX::Languages::XML::Impl::Context {
   use MarpaX::Languages::XML::Role::Context;
+  use MarpaX::Languages::XML::Type::Dispatcher -all;
   use MarpaX::Languages::XML::Type::Grammar -all;
   use MarpaX::Languages::XML::Type::IO -all;
   use MarpaX::Languages::XML::Type::Encoding -all;
@@ -19,6 +20,7 @@ class MarpaX::Languages::XML::Impl::Context {
 
   has io               => ( is => 'rw',   isa => IO,                required => 1, trigger => 1 );
   has grammar          => ( is => 'rw',   isa => Grammar,           required => 1, trigger => 1 );
+  has dispatcher       => ( is => 'rw',   isa => Dispatcher,        required => 1 );
   has encoding         => ( is => 'rwp',  isa => Encoding,          init_arg => undef );
   has recognizer       => ( is => 'rw',   isa => Recognizer);
   has pos              => ( is => 'rw',   isa => PositiveOrZeroInt, default => 0 );
@@ -26,6 +28,7 @@ class MarpaX::Languages::XML::Impl::Context {
   has column           => ( is => 'rw',   isa => PositiveOrZeroInt, default => 1 );
   has lastLexemes      => ( is => 'rw',   isa => LastLexemes,       default => sub { return {} } );
   has namespaceSupport => ( is => 'rwp',  isa => NamespaceSupport,  init_arg => undef );
+  has callbackSaidStop => ( is => 'rw',   isa => Bool,              default => false );
 
   method _trigger_io(IO $io --> Undef) {
     #
