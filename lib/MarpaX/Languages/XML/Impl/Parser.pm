@@ -148,7 +148,9 @@ __DATA__
 method _generic_parse(Context $context, Str $endEventName, Bool $eolHandling, Bool $resume --> Parser) {
   #
   # Start recognizer if not resuming
-    #
+  #
+  my $r;
+  if (! $context->has_recognizer) {
     $r->read(\'  ') if (! $resume);
     #
     # Create a State compatible hash
