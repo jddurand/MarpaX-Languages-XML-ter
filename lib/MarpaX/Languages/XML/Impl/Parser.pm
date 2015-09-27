@@ -72,16 +72,16 @@ class MarpaX::Languages::XML::Impl::Parser {
 
     #
     # And events framework. They are:
-    # - WFC constraints
-    # - VC constraints
-    # - other events
+    # - WFC constraints (configurable)
+    # - VC constraints (configurable)
+    # - other events (not configurable)
     #
     my $pluginFactory = MarpaX::Languages::XML::Impl::PluginFactory->new(grammar => $grammar);
     $pluginFactory
-      ->registerPlugins($grammar, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::General', ':all')
-      ->registerPlugins($grammar, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::IO',      ':all')
-      ->registerPlugins($grammar, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::VC',      $self->elements_vc)
       ->registerPlugins($grammar, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::WFC',     $self->elements_wfc)
+      ->registerPlugins($grammar, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::VC',      $self->elements_vc)
+      ->registerPlugins($grammar, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::IO',      ':all')
+      ->registerPlugins($grammar, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::General', ':all')
       ;
     #
     # Go
