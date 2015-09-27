@@ -130,7 +130,7 @@ __DATA__
     my $io = $context->io;
     my $pos = $io->pos;
     if ($pos >= $io->length) {
-      $io->clear;
+      $MarpaX::Languages::XML::Impl::Parser::buffer = '';
     } else {
       substr($MarpaX::Languages::XML::Impl::Parser::buffer, 0, $pos, '');
     }
@@ -142,10 +142,10 @@ __DATA__
     return $self;
   }
 
-  method _read(Context $context --> Parser) {
+  method _read(Context $context, Bool $eolHandling --> Parser) {
 
     $context->io->read;
-    $context->dispatcher->notify('IORead', $MarpaX::Languages::XML::Impl::Parser::buffer) if (! $context->inDeclaration);
+    $context->dispatcher->process('EOL', $MarpaX::Languages::XML::Impl::Parser::buffer) if ($eolHandling);
 
     return $self;
   }

@@ -2,9 +2,9 @@ use Moops;
 
 # PODCLASSNAME
 
-# ABSTRACT: I/O read plugin implementation
+# ABSTRACT: End-of-line plugin implementation
 
-class MarpaX::Languages::XML::Impl::Plugin::IO::read :assertions {
+class MarpaX::Languages::XML::Impl::Plugin::IO::EOL :assertions {
   use MarpaX::Languages::XML::Impl::Plugin;
   use MarpaX::Languages::XML::Type::PluggableConstant -all;
   use MarpaX::Languages::XML::Type::State -all;
@@ -15,12 +15,12 @@ class MarpaX::Languages::XML::Impl::Plugin::IO::read :assertions {
 
   has '+subscriptions' => (default => sub { return
                                               {
-                                               PROCESS => [ 'read' ]
+                                               PROCESS => [ 'EOL' ]
                                               };
                                           }
                           );
 
-  method P_read(Dispatcher $dispatcher, State $state --> PluggableConstant) {
+  method P_EOL(Dispatcher $dispatcher, State $state --> PluggableConstant) {
     return EAT_CLIENT   # No ';' for fewer hops
   }
 

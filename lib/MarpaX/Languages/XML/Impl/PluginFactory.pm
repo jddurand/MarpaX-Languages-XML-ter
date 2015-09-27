@@ -70,7 +70,6 @@ class MarpaX::Languages::XML::Impl::PluginFactory {
         $errorMessage = $_;
       };
       if ($success) {
-        $self->_logger->tracef('Success loading %s', $pluginClass);
         $dispatcher->plugin_add($pluginClass, $pluginClass->new(grammar => $grammar));
       } else {
         $self->_logger->tracef('Failure to load %s: %s', $pluginClass, $errorMessage);
