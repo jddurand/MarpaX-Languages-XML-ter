@@ -13,6 +13,7 @@ class MarpaX::Languages::XML::Impl::Context {
   use MarpaX::Languages::XML::Type::Recognizer -all;
   use MarpaX::Languages::XML::Type::LastLexemes -all;
   use MarpaX::Languages::XML::Type::NamespaceSupport -all;
+  use MooX::HandlesVia;
   use Types::Common::Numeric -all;
   use Throwable::Factory
     IOException    => undef
@@ -25,7 +26,13 @@ class MarpaX::Languages::XML::Impl::Context {
   has recognizer       => ( is => 'rw',   isa => Recognizer);
   has line             => ( is => 'rw',   isa => PositiveOrZeroInt, default => 1 );
   has column           => ( is => 'rw',   isa => PositiveOrZeroInt, default => 1 );
-  has lastLexemes      => ( is => 'rw',   isa => LastLexemes,       default => sub { return {} } );
+  has lastLexemes      => ( is => 'rw',   isa => LastLexemes,       default => sub { return [] },
+                            handles_via => 'Array',
+                            handles => {
+                                        get_lastLexeme => 'get',
+                                        set_lastLexeme => 'set',
+                                       }
+                          );
   has namespaceSupport => ( is => 'rwp',  isa => NamespaceSupport,  init_arg => undef );
   has callbackSaidStop => ( is => 'rw',   isa => Bool,              default => false );
   has inDeclaration    => ( is => 'rw',   isa => Bool,              default => false );

@@ -10,6 +10,6 @@ use Types::Standard -types;
 # AUTHORITY
 
 declare LastLexemes,
-  as HashRef[Str];
+  as ArrayRef[Str];
 
 1;

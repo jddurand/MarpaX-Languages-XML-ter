@@ -18,6 +18,8 @@ role MarpaX::Languages::XML::Role::Context {
   requires 'line';
   requires 'column';
   requires 'lastLexemes';
+  requires 'get_lastLexeme';
+  requires 'set_lastLexeme';
   requires 'namespaceSupport';
   requires 'callbackSaidStop';
   requires 'inDeclaration';

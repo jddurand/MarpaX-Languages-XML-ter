@@ -71,12 +71,12 @@ class MarpaX::Languages::XML::Impl::IO {
     return $self;
   }
 
-  method length( --> IO) {
+  method length( --> PositiveOrZeroInt) {
 
     my $rc = $self->_io->length();
     $self->_logger->tracef('Getting length -> %s', $rc);
 
-    return $self;
+    return $rc;
   }
 
   method buffer(@args --> ScalarRef) {

@@ -24,7 +24,8 @@ class MarpaX::Languages::XML {
                                                      xmlns      => $self->xmlns,
                                                      wfc        => $self->wfc,
                                                      vc         => $self->vc,
-                                                     blockSize  => $self->blocksize);
+                                                     blockSize  => $self->blocksize,
+                                                     unicode_newline => $self->unicode_newline);
   }
   # ---------------------------------------------------------------------------
   option wfc => (
@@ -105,6 +106,17 @@ class MarpaX::Languages::XML {
                        short => 'b',
                        doc => q{I/O block length. At the very beginning this really mean bytes, and when encoding is determined this mean number of characters. Default value is 1M. Must be a positive value.}
                   );
+  # ---------------------------------------------------------------------------
+  option unicode_newline => (
+                             is => 'ro',
+                             isa => Bool,
+                             default => false,
+                             #
+                             # Options
+                             #
+                             short => 'u',
+                             doc => q{Unicode newline. Has an impact on counting line and column numbers. Default to a false value, which mean that what wour current OS think is a newline will be used.}
+                            );
 }
 
 1;
