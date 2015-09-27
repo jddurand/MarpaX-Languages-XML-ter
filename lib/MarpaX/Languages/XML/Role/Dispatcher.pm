@@ -5,7 +5,7 @@ use Moops;
 # ABSTRACT: Parser role
 
 role MarpaX::Languages::XML::Role::Dispatcher {
-  use MooX::Role::Pluggable;
+  use MarpaX::Languages::XML::Role::Pluggable;
 
   # VERSION
 
@@ -13,7 +13,7 @@ role MarpaX::Languages::XML::Role::Dispatcher {
 
   requires 'notify';
 
-  with qw/MooX::Role::Pluggable/;
+  with qw/MarpaX::Languages::XML::Role::Pluggable/;
 }
 
 1;

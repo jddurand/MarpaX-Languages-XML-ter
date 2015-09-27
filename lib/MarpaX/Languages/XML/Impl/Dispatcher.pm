@@ -7,13 +7,11 @@ use Moops;
 class MarpaX::Languages::XML::Impl::Dispatcher {
   use MarpaX::Languages::XML::Role::Dispatcher;
 
-  method notify(@args --> Undef) {
-    $self->_pluggable_process('NOTIFY', @args);
-    return;
+  method notify {
+    $self->_pluggable_process('NOTIFY', @_)     # No ';' for fewer hops
   }
 
   with qw/MarpaX::Languages::XML::Role::Dispatcher/;
 }
 
 1;
-

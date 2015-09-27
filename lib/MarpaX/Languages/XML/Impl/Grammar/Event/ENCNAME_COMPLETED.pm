@@ -2,9 +2,9 @@ use Moops;
 
 # PODCLASSNAME
 
-# ABSTRACT: Well-Formed constraint "No < sign in attribute value" implementation
+# ABSTRACT: ENCNAME_COMPLETED Grammar Event implementation
 
-class MarpaX::Languages::XML::Impl::WFC::NoLeftSignInAttributeValue :assertions {
+class MarpaX::Languages::XML::Impl::Grammar::Event::ENCNAME_COMPLETED :assertions {
   use MarpaX::Languages::XML::Impl::Plugin;
   use MarpaX::Languages::XML::Type::PluggableConstant -all;
   use MarpaX::Languages::XML::Type::State -all;
@@ -15,12 +15,12 @@ class MarpaX::Languages::XML::Impl::WFC::NoLeftSignInAttributeValue :assertions 
 
   has '+subscriptions' => (default => sub { return
                                               {
-                                               NOTIFY => [ 'AttValue_COMPLETED' ]
+                                               NOTIFY => [ 'ENCNAME_COMPLETED' ]
                                               };
                                           }
                           );
 
-  method N_AttValue_COMPLETE(Dispatcher $dispatcher, State $state --> PluggableConstant) {
+  method N_ENCNAME_COMPLETE(Dispatcher $dispatcher, State $state --> PluggableConstant) {
     return EAT_CLIENT   # No ';' for fewer hops
   }
 

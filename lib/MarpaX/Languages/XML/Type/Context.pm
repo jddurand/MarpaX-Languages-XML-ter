@@ -10,6 +10,6 @@ use Types::Standard -types;
 # AUTHORITY
 
 declare Context,
-  as Enum[qw/document element attribute/];
+  as ConsumerOf['MarpaX::Languages::XML::Role::Context'];
 
 1;

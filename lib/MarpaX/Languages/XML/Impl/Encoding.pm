@@ -164,7 +164,7 @@ class MarpaX::Languages::XML::Impl::Encoding {
         }
         $self->_guess(uc($enc->name || ''));
       } catch {
-        $self->_logger->tracef('Encoding guess failure, %s', $_);
+        $self->_logger->tracef('Encoding guess failure, %s', "$_");
       }
     }
 

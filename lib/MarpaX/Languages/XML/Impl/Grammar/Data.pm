@@ -527,6 +527,15 @@ XMLNS ::= _XMLNS
 COLON ::= _COLON
 
 #
+# Lexemes of interest events
+#
+event 'ENCNAME_COMPLETED'       =off = completed <ENCNAME>
+event 'XMLDECL_START_COMPLETED' =off = completed <XMLDECL_START>
+event 'XMLDECL_END_COMPLETED'   =off = completed <XMLDECL_END>
+event 'VERSIONNUM_COMPLETED'    =off = completed <VERSIONNUM>
+event 'ELEMENT_START_COMPLETED' =off = completed <ELEMENT_START>
+
+#
 # Internal nullable rule to force the recognizer to stop immeidately,
 # before reading any lexeme
 #
