@@ -7,26 +7,21 @@ use Moops;
 class MarpaX::Languages::XML::Impl::Parser {
   use Marpa::R2;
   use MarpaX::Languages::XML::Impl::Context;
-  use MarpaX::Languages::XML::Impl::Grammar::Event;
-  use MarpaX::Languages::XML::Impl::Grammar;
   use MarpaX::Languages::XML::Impl::Dispatcher;
+  use MarpaX::Languages::XML::Impl::Grammar;
   use MarpaX::Languages::XML::Impl::IO;
   use MarpaX::Languages::XML::Impl::Encoding;
-  use MarpaX::Languages::XML::Impl::WFC;
-  use MarpaX::Languages::XML::Impl::VC;
+  use MarpaX::Languages::XML::Impl::PluginFactory;
   use MarpaX::Languages::XML::Role::Parser;
   use MarpaX::Languages::XML::Type::Context -all;
   use MarpaX::Languages::XML::Type::Dispatcher -all;
   use MarpaX::Languages::XML::Type::Encoding -all;
   use MarpaX::Languages::XML::Type::Grammar -all;
-  use MarpaX::Languages::XML::Type::Grammar::Event -all;
   use MarpaX::Languages::XML::Type::NamespaceSupport -all;
   use MarpaX::Languages::XML::Type::IO -all;
   use MarpaX::Languages::XML::Type::Parser -all;
   use MarpaX::Languages::XML::Type::Recognizer -all;
   use MarpaX::Languages::XML::Type::XmlVersion -all;
-  use MarpaX::Languages::XML::Type::WFC -all;
-  use MarpaX::Languages::XML::Type::VC -all;
   use MarpaX::Languages::XML::Marpa::R2::Hooks;
   use MooX::HandlesVia;
   use Throwable::Factory
@@ -40,22 +35,16 @@ class MarpaX::Languages::XML::Impl::Parser {
 
   has xmlVersion     => ( is => 'ro',  isa => XmlVersion,        required => 1 );
   has xmlns          => ( is => 'ro',  isa => Bool,              required => 1 );
-  has vc             => ( is => 'ro',  isa => ArrayRef[Str],     required => 1 );
-  has wfc            => ( is => 'ro',  isa => ArrayRef[Str],     required => 1 );
+  has vc             => ( is => 'ro',  isa => ArrayRef[Str],     required => 1, handles_via => 'Array', handles => { elements_vc => 'elements' } );
+  has wfc            => ( is => 'ro',  isa => ArrayRef[Str],     required => 1, handles_via => 'Array', handles => { elements_wfc => 'elements' } );
   has blockSize      => ( is => 'ro',  isa => PositiveOrZeroInt, default => 1024 * 1024 );
   has rc             => ( is => 'rwp', isa => Int,               default => 0 );
 
-  has _dispatcher    => ( is => 'rw',  isa => Dispatcher,        lazy => 1, builder => 1 );
-  has _wfcInstance   => ( is => 'rw',  isa => WFC,               lazy => 1, builder => 1 );
-  has _vcInstance    => ( is => 'rw',  isa => VC,                lazy => 1, builder => 1 );
-  has _eventInstance => ( is => 'rw',  isa => GrammarEvent,      lazy => 1, builder => 1 );
-  has _grammars      => ( is => 'rw',  isa => HashRef[Grammar],  lazy => 1, builder => 1, handles_via => 'Hash', handles => { _get_grammar => 'get' } );
   #
   # The followings are just to avoid creating them more than once
   #
-  method _build__dispatcher( --> Dispatcher )  {
-    return MarpaX::Languages::XML::Impl::Dispatcher->new();
-  }
+  has _grammars      => ( is => 'rw',  isa => HashRef[Grammar],  lazy => 1, builder => 1, handles_via => 'Hash', handles => { _get_grammar => 'get' } );
+
   method _build__grammars( --> HashRef[Grammar]) {
     my %grammars = ();
     foreach (qw/document prolog element/) {
@@ -64,30 +53,15 @@ class MarpaX::Languages::XML::Impl::Parser {
     return \%grammars;
   }
 
-  method _build__wfcInstance( --> WFC) {
-    return MarpaX::Languages::XML::Impl::WFC->new(dispatcher => $self->_dispatcher, wfc => $self->wfc);
-  }
-
-  method _build__vcInstance( --> VC) {
-    return MarpaX::Languages::XML::Impl::VC->new(dispatcher => $self->_dispatcher, vc => $self->wfc);
-  }
-
-  method _build__eventInstance( --> GrammarEvent) {
-    return MarpaX::Languages::XML::Impl::Grammar::Event->new(dispatcher => $self->_dispatcher, event => [qw/:all/]);
-  }
-
   method parse(Str $source --> Int) {
     #
     # Prepare variables to build the context
     #
-    my $io               = MarpaX::Languages::XML::Impl::IO->new(source => $source);
-    my $grammar          = $self->_get_grammar('document');
-    my $dispatcher       = $self->_dispatcher;
+    my $io         = MarpaX::Languages::XML::Impl::IO->new(source => $source);
+    my $grammar    = $self->_get_grammar('document');
+    my $dispatcher = MarpaX::Languages::XML::Impl::Dispatcher->new();
     #
-    # We want to handle buffer direcly with no COW: we could either pass it in
-    # parameters or localize it. I choose localization so that method signatures
-    # will not eat it. And this is easier since there are a lot of different
-    # packages involved -;
+    # We want to handle buffer direcly with no COW: the buffer scalar is localized
     #
     local $MarpaX::Languages::XML::Impl::Parser::buffer = '';
     $io->buffer(\$MarpaX::Languages::XML::Impl::Parser::buffer);
@@ -95,18 +69,25 @@ class MarpaX::Languages::XML::Impl::Parser {
     # Create context
     #
     my $context = MarpaX::Languages::XML::Impl::Context->new(io => $io, grammar => $grammar, dispatcher => $dispatcher);
+
+    #
+    # And events framework. They are:
+    # - WFC constraints
+    # - VC constraints
+    # - other events
+    #
+    my $pluginFactory = MarpaX::Languages::XML::Impl::PluginFactory->new(grammar => $grammar);
+    $pluginFactory
+      ->registerPlugins($grammar, $dispatcher, 'MarpaX::Languages::XML::Impl::Grammar::Event', ':all')
+      ->registerPlugins($grammar, $dispatcher, 'MarpaX::Languages::XML::Impl::VC',             $self->elements_vc)
+      ->registerPlugins($grammar, $dispatcher, 'MarpaX::Languages::XML::Impl::WFC',            $self->elements_wfc)
+      ;
     #
     # Go
     #
     $io->block_size($self->blockSize);
-    $self->_eventInstance;
-    $self->_wfcInstance;
-    $self->_vcInstance;
 
-    return $self
-      ->_parse_prolog($context)
-      ->_parse_element($context)
-      ->rc;
+    return $self->_parse_prolog($context)->_parse_element($context)->rc;
   }
 
   method _parse_prolog(Context $context --> Parser) {
@@ -134,6 +115,7 @@ class MarpaX::Languages::XML::Impl::Parser {
   }
 
   method _parse_element(Context $context --> Parser) {
+
     return $self;
   }
 
@@ -143,74 +125,98 @@ class MarpaX::Languages::XML::Impl::Parser {
 
 1;
 __DATA__
-method _generic_parse(Context $context, Recognizer $r, Str $endEventName, Bool $eolHandling, Bool $resume --> Parser) {
-  #
-  # Start recognizer if not resuming
-  #
-  $r->read(\'  ') if (! $resume);
-  #
-  # Variables that need initialization
-  #
-  my $io                             = $context->io;
-  my $line                           = $context->line;
-  my $column                         = $context->column;
-  my $pos                            = $context->pos;
-  my $dispatcher                     = $context->dispatcher;
-  my $length                         = length($MarpaX::Languages::XML::Impl::Parser::buffer);
-  my $remaining                      = $length - $pos;
-  my @lexeme_match_by_symbol_ids     = $grammar->elements_lexemesRegexpBySymbolId;
-  my @lexeme_exclusion_by_symbol_ids = $grammar->elements_lexemesExclusionsRegexpBySymbolId;
-  my $previous_can_stop              = 0;
-  my $_XMLNSCOLON_ID                 = $grammar->compiledGrammar->symbol_by_name_hash->{'_XMLNSCOLON'};
-  my $_XMLNS_ID                      = $grammar->compiledGrammar->symbol_by_name_hash->{'_XMLNS'};
-  #
-  # Infinite loop until user says to stop or error
-  #
-  while (1) {
-    my @event_names                      = map { $_->[0] } @{$r->events()};
-    my @terminals_expected_to_symbol_ids = $r->terminals_expected_to_symbol_ids();
-    #
-    # First the events
-    #
-    my $can_stop = 0;
-    foreach (@event_names) {
-      #
-      # Catch the end event name
-      #
-      $can_stop = 1 if ($_ eq $endEventName);
-      #
-      # Dispatch events
-      #
-      $dispatcher->notify($_, $context);
-      #
-      # Return if one of the callbacks said stop
-      #
-      return if ($context->callbackSaidStop);
+  method _reduce(Context $context --> Parser) {
+    my $io = $context->io;
+    my $pos = $io->pos;
+    if ($pos >= $io->length) {
+      $io->clear;
+    } else {
+      substr($MarpaX::Languages::XML::Impl::Parser::buffer, 0, $pos, '');
     }
     #
-    # Then the expected lexemes
-    # This is a do {} while () because of end-of-buffer management
+    # Re-position internal buffer
     #
-    my $terminals_expected_again = 0;
-    do {
-      my %length = ();
-      my $max_length = 0;
-      foreach (@terminals_expected_to_symbol_ids) {
+    pos($MarpaX::Languages::XML::Impl::Parser::buffer) = 0;
+
+    return $self;
+  }
+
+  method _read(Context $context --> Parser) {
+
+    $context->io->read;
+    $context->dispatcher->notify('IORead', $MarpaX::Languages::XML::Impl::Parser::buffer) if (! $context->inDeclaration);
+
+    return $self;
+  }
+
+  method _generic_parse(Context $context, Recognizer $r, Str $endEventName, Bool $eolHandling, Bool $resume --> Parser) {
+    #
+    # Start recognizer if not resuming
+    #
+    $r->read(\'  ') if (! $resume);
+    #
+    # Variables that need initialization
+    #
+    my $io                             = $context->io;
+    my $line                           = $context->line;
+    my $column                         = $context->column;
+    my $pos                            = $context->pos;
+    my $dispatcher                     = $context->dispatcher;
+    my $length                         = length($MarpaX::Languages::XML::Impl::Parser::buffer);
+    my $remaining                      = $length - $pos;
+    my @lexeme_match_by_symbol_ids     = $grammar->elements_lexemesRegexpBySymbolId;
+    my @lexeme_exclusion_by_symbol_ids = $grammar->elements_lexemesExclusionsRegexpBySymbolId;
+    my $previous_can_stop              = 0;
+    my $_XMLNSCOLON_ID                 = $grammar->compiledGrammar->symbol_by_name_hash->{'_XMLNSCOLON'};
+    my $_XMLNS_ID                      = $grammar->compiledGrammar->symbol_by_name_hash->{'_XMLNS'};
+    #
+    # Infinite loop until user says to stop or error
+    #
+    while (1) {
+      my @event_names                      = map { $_->[0] } @{$r->events()};
+      my @terminals_expected_to_symbol_ids = $r->terminals_expected_to_symbol_ids();
+      #
+      # First the events
+      #
+      my $can_stop = 0;
+      foreach (@event_names) {
         #
-        # It is a configuration error to have $lexeme_match{$_} undef at this stage
-        # Note: all our patterns are compiled with the /p modifier for perl < 5.20
+        # Catch the end event name
         #
-        # We use an optimized version to bypass the the Marpa::R2::Grammar::symbol_name call
+        $can_stop = 1 if ($_ eq $endEventName);
         #
-        if ($MarpaX::Languages::XML::Impl::Parser::buffer =~ $lexeme_match_by_symbol_ids[$_]) {
-          my $matched_data = ${^MATCH};
-          my $length_matched_data = length($matched_data);
+        # Dispatch events
+        #
+        $dispatcher->notify($_, $context);
+        #
+        # Return if one of the callbacks said stop
+        #
+        return if ($context->callbackSaidStop);
+      }
+      #
+      # Then the expected lexemes
+      # This is a do {} while () because of end-of-buffer management
+      #
+      my $terminals_expected_again = 0;
+      do {
+        my %length = ();
+        my $max_length = 0;
+        foreach (@terminals_expected_to_symbol_ids) {
           #
-          # Match reaches end of buffer ?
+          # It is a configuration error to have $lexeme_match{$_} undef at this stage
+          # Note: all our patterns are compiled with the /p modifier for perl < 5.20
           #
-          if ((($pos + $length_matched_data) >= $length) && ! $io->eof) { # Match up to the end of buffer is avoided as much as possible
-            my $old_remaining = $remaining;
-            $remaining = $self->_reduceAndRead($_[1], $r, $pos, $length, \$pos, \$length, $grammar, $eol, $eol_impl);
+          # We use an optimized version to bypass the the Marpa::R2::Grammar::symbol_name call
+          #
+          if ($MarpaX::Languages::XML::Impl::Parser::buffer =~ $lexeme_match_by_symbol_ids[$_]) {
+            my $matched_data = ${^MATCH};
+            my $length_matched_data = length($matched_data);
+            #
+            # Match reaches end of buffer ?
+            #
+            if ((($pos + $length_matched_data) >= $length) && ! $io->eof) { # Match up to the end of buffer is avoided as much as possible
+              $self->_reduce(->_my $old_remaining = $remaining;
+              $remaining = $self->_reduceAndRead($_[1], $r, $pos, $length, \$pos, \$length, $grammar, $eol, $eol_impl);
             if ($remaining > $old_remaining) {
               #
               # Something was read

@@ -23,12 +23,12 @@ class MarpaX::Languages::XML::Impl::Context {
   has dispatcher       => ( is => 'rw',   isa => Dispatcher,        required => 1 );
   has encoding         => ( is => 'rwp',  isa => Encoding,          init_arg => undef );
   has recognizer       => ( is => 'rw',   isa => Recognizer);
-  has pos              => ( is => 'rw',   isa => PositiveOrZeroInt, default => 0 );
   has line             => ( is => 'rw',   isa => PositiveOrZeroInt, default => 1 );
   has column           => ( is => 'rw',   isa => PositiveOrZeroInt, default => 1 );
   has lastLexemes      => ( is => 'rw',   isa => LastLexemes,       default => sub { return {} } );
   has namespaceSupport => ( is => 'rwp',  isa => NamespaceSupport,  init_arg => undef );
   has callbackSaidStop => ( is => 'rw',   isa => Bool,              default => false );
+  has inDeclaration    => ( is => 'rw',   isa => Bool,              default => false );
 
   method _trigger_io(IO $io --> Undef) {
     #

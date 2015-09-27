@@ -15,12 +15,12 @@ role MarpaX::Languages::XML::Role::Context {
   requires 'dispatcher';
   requires 'encoding';
   requires 'recognizer';
-  requires 'pos';
   requires 'line';
   requires 'column';
   requires 'lastLexemes';
   requires 'namespaceSupport';
   requires 'callbackSaidStop';
+  requires 'inDeclaration';
 }
 
 1;

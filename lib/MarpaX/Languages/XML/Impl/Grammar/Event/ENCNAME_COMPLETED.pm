@@ -24,7 +24,6 @@ class MarpaX::Languages::XML::Impl::Grammar::Event::ENCNAME_COMPLETED :assertion
     return EAT_CLIENT   # No ';' for fewer hops
   }
 
-  with 'MarpaX::Languages::XML::Role::Plugin';
   with 'MooX::Role::Logger';
 }
 

@@ -12,6 +12,7 @@ role MarpaX::Languages::XML::Role::Dispatcher {
   # AUTHORITY
 
   requires 'notify';
+  requires 'process';
 
   with qw/MarpaX::Languages::XML::Role::Pluggable/;
 }

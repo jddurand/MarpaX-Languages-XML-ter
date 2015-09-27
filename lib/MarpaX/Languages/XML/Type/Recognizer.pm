@@ -9,7 +9,7 @@ use Types::Standard -types;
 
 # AUTHORITY
 
-declare Recognizer, as InstanceOf['MarpaX::R2::Scanless::R'];
+declare Recognizer, as InstanceOf['Marpa::R2::Scanless::R'];
 
 ;
 1;

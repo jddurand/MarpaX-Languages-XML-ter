@@ -6,6 +6,7 @@ use Moops;
 
 class MarpaX::Languages::XML {
   use MarpaX::Languages::XML::Impl::Parser;
+  use MarpaX::Languages::XML::Impl::PluginFactory;
   use MarpaX::Languages::XML::Type::Loglevel -all;
   use MarpaX::Languages::XML::Type::XmlVersion -all;
   use MooX::Options protect_argv => 0;;
@@ -38,7 +39,7 @@ class MarpaX::Languages::XML {
                  short => 'w',
                  doc =>
                  "Well-Formed constraints. Repeatable option. Default is \":all\". Supported values are:\n"
-                 . join(",\n",  map {"\t\t$_"} MarpaX::Languages::XML::Impl::WFC->listAllPlugins('MarpaX::Languages::XML::Impl::WFC'), ':all', ':none') . "."
+                 . join(",\n",  map {"\t\t$_"} MarpaX::Languages::XML::Impl::PluginFactory->listAllPlugins('MarpaX::Languages::XML::Impl::WFC'), ':all', ':none') . "."
                  . "\n\tList is taken in order: \":all\" to push all plugins, \":none\" to remove everything, \"no-X\" to remove plugin \"X\"."
                 );
   # ---------------------------------------------------------------------------
@@ -54,7 +55,7 @@ class MarpaX::Languages::XML {
                 short => 'v',
                 doc =>
                  "Validation constraints. Repeatable option. Default is \":all\". Supported values are:\n"
-                 . join(",\n",  map {"\t\t$_"} MarpaX::Languages::XML::Impl::VC->listAllPlugins('MarpaX::Languages::XML::Impl::VC'), ':all', ':none') . "."
+                 . join(",\n",  map {"\t\t$_"} MarpaX::Languages::XML::Impl::PluginFactory->listAllPlugins('MarpaX::Languages::XML::Impl::VC'), ':all', ':none') . "."
                  . "\n\tList is taken in order: \":all\" to push all plugins, \":none\" to remove everything, \"no-X\" to remove plugin \"X\"."
                 );
   # ---------------------------------------------------------------------------
