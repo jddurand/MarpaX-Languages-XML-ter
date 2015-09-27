@@ -12,16 +12,50 @@ class MarpaX::Languages::XML::Impl::Grammar {
   use MarpaX::Languages::XML::Type::LexemesRegexp -all;
   use MarpaX::Languages::XML::Type::LexemesExclusionsRegexp -all;
   use MarpaX::Languages::XML::Type::XmlVersion -all;
+  use MooX::HandlesVia;
   use MooX::Role::Logger;
 
   has compiledGrammar         => ( is => 'ro', isa => InstanceOf['Marpa::R2::Scanless::G'], lazy => 1, builder => 1 );
-  has lexemesRegexp           => ( is => 'ro', isa => LexemesRegexp,                        lazy => 1, builder => 1 );
-  has lexemesExclusionsRegexp => ( is => 'ro', isa => LexemesExclusionsRegexp,              lazy => 1, builder => 1 );
+  has lexemesRegexp           => ( is => 'ro', isa => LexemesRegexp,                        lazy => 1, builder => 1,
+                                   handles_via => 'Hash',
+                                   handles => {
+                                               exists_lexemesRegexp => 'exists',
+                                               get_lexemesRegexp => 'get'
+                                              }
+                                 );
+  has lexemesExclusionsRegexp => ( is => 'ro', isa => LexemesExclusionsRegexp,              lazy => 1, builder => 1,
+                                   handles_via => 'Hash',
+                                   handles => {
+                                               exists_lexemesExclusionsRegexp => 'exists',
+                                               get_lexemesExclusionsRegexp => 'get'
+                                              }
+                                 );
   has xmlVersion              => ( is => 'ro', isa => XmlVersion,                           required => 1 );
   has xmlns                   => ( is => 'ro', isa => Bool,                                 required => 1 );
   has startSymbol             => ( is => 'ro', isa => Str,                                  required => 1 );
 
   has _bnf                    => ( is => 'rw', isa => Str,                                  lazy => 1, builder => 1 );
+  has lexemesRegexpBySymbolId => (
+                                  is  => 'ro',
+                                  isa => ArrayRef[RegexpRef|Undef],
+                                  lazy  => 1,
+                                  builder => 1,
+                                  handles_via => 'Array',
+                                  handles => {
+                                              elements_lexemesRegexpBySymbolId  => 'elements'
+                                             }
+                                 );
+
+has lexemesExclusionsRegexpBySymbolId => (
+                                          is  => 'ro',
+                                          isa => ArrayRef[RegexpRef|Undef],
+                                          lazy  => 1,
+                                          builder => 1,
+                                          handles_via => 'Array',
+                                          handles => {
+                                                      elements_lexemesExclusionsRegexpBySymbolId  => 'elements'
+                                                     }
+                                         );
 
   our $PACKAGE_DATA = 'MarpaX::Languages::XML::Impl::Grammar::Data';
 
@@ -222,7 +256,35 @@ class MarpaX::Languages::XML::Impl::Grammar {
     return \%LEXEMESEXCLUSIONS_REGEXP_COMMON;
   }
 
-  with 'MarpaX::Languages::XML::Role::Grammar';
+  method _build_lexemesRegexpBySymbolId {
+    my $symbol_by_name_hash = $self->compiledGrammar->symbol_by_name_hash;
+    #
+    # Build the regexp list as an array using symbol ids as indice
+    #
+    my @array = ();
+    foreach (keys %{$symbol_by_name_hash}) {
+      if ($self->exists_lexemesRegexp($_)) {
+        $array[$symbol_by_name_hash->{$_}] = $self->get_lexemesRegexp($_);
+      }
+    }
+    return \@array;
+  }
+
+  method _build_lexemesExclusionsRegexpBySymbolId {
+    my $symbol_by_name_hash = $self->compiledGrammar->symbol_by_name_hash;
+    #
+    # Build the string list as an array using symbol ids as indice
+    #
+    my @array = ();
+    foreach (keys %{$symbol_by_name_hash}) {
+      if ($self->exists_lexemesExclusionsRegexp($_)) {
+        $array[$symbol_by_name_hash->{$_}] = $self->get_lexemesExclusionsRegexp($_);
+      }
+    }
+    return \@array;
+  }
+
+with 'MarpaX::Languages::XML::Role::Grammar';
   with 'MooX::Role::Logger';
 }
 

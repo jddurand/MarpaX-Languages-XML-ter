@@ -11,8 +11,21 @@ role MarpaX::Languages::XML::Role::Grammar {
   # AUTHORITY
 
   requires 'compiledGrammar';
+
   requires 'lexemesRegexp';
+  requires 'exists_lexemesRegexp';
+  requires 'get_lexemesRegexp';
+
+  requires 'lexemesRegexpBySymbolId';
+  requires 'elements_lexemesRegexpBySymbolId';
+
   requires 'lexemesExclusionsRegexp';
+  requires 'exists_lexemesExclusionsRegexp';
+  requires 'get_lexemesExclusionsRegexp';
+
+  requires 'lexemesExclusionsRegexpBySymbolId';
+  requires 'elements_lexemesExclusionsRegexpBySymbolId';
+
   requires 'xmlVersion';
   requires 'xmlns';
   requires 'startSymbol';
