@@ -78,9 +78,10 @@ class MarpaX::Languages::XML::Impl::Parser {
     #
     my $pluginFactory = MarpaX::Languages::XML::Impl::PluginFactory->new(grammar => $grammar);
     $pluginFactory
-      ->registerPlugins($grammar, $dispatcher, 'MarpaX::Languages::XML::Impl::Grammar::Event', ':all')
-      ->registerPlugins($grammar, $dispatcher, 'MarpaX::Languages::XML::Impl::VC',             $self->elements_vc)
-      ->registerPlugins($grammar, $dispatcher, 'MarpaX::Languages::XML::Impl::WFC',            $self->elements_wfc)
+      ->registerPlugins($grammar, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::General', ':all')
+      ->registerPlugins($grammar, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::IO',      ':all')
+      ->registerPlugins($grammar, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::VC',      $self->elements_vc)
+      ->registerPlugins($grammar, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::WFC',     $self->elements_wfc)
       ;
     #
     # Go

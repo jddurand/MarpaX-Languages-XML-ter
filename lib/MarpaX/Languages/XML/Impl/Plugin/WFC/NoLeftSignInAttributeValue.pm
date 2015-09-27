@@ -4,7 +4,7 @@ use Moops;
 
 # ABSTRACT: Well-Formed constraint "No < sign in attribute value" implementation
 
-class MarpaX::Languages::XML::Impl::WFC::NoLeftSignInAttributeValue :assertions {
+class MarpaX::Languages::XML::Impl::Plugin::WFC::NoLeftSignInAttributeValue :assertions {
   use MarpaX::Languages::XML::Impl::Plugin;
   use MarpaX::Languages::XML::Type::PluggableConstant -all;
   use MarpaX::Languages::XML::Type::State -all;

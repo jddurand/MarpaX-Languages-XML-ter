@@ -2,9 +2,9 @@ use Moops;
 
 # PODCLASSNAME
 
-# ABSTRACT: ENCNAME_COMPLETED Grammar Event implementation
+# ABSTRACT: I/O read plugin implementation
 
-class MarpaX::Languages::XML::Impl::Grammar::Event::ENCNAME_COMPLETED :assertions {
+class MarpaX::Languages::XML::Impl::Plugin::IO::read :assertions {
   use MarpaX::Languages::XML::Impl::Plugin;
   use MarpaX::Languages::XML::Type::PluggableConstant -all;
   use MarpaX::Languages::XML::Type::State -all;
@@ -15,12 +15,12 @@ class MarpaX::Languages::XML::Impl::Grammar::Event::ENCNAME_COMPLETED :assertion
 
   has '+subscriptions' => (default => sub { return
                                               {
-                                               NOTIFY => [ 'ENCNAME_COMPLETED' ]
+                                               PROCESS => [ 'read' ]
                                               };
                                           }
                           );
 
-  method N_ENCNAME_COMPLETE(Dispatcher $dispatcher, State $state --> PluggableConstant) {
+  method P_read(Dispatcher $dispatcher, State $state --> PluggableConstant) {
     return EAT_CLIENT   # No ';' for fewer hops
   }
 
