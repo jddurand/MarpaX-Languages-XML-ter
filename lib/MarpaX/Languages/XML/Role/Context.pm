@@ -14,6 +14,7 @@ role MarpaX::Languages::XML::Role::Context {
   requires 'grammar';
   requires 'encoding';
   requires 'recognizer';
+  requires 'has_recognizer';
   requires 'pos';
   requires 'line';
   requires 'column';

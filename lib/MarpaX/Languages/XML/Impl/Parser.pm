@@ -144,11 +144,10 @@ class MarpaX::Languages::XML::Impl::Parser {
 }
 
 1;
-
 __DATA__
-  method _generic_parse(IO $io, Encoding $encoding, Grammar $grammar, NamespaceSupport $ns, Recognizer $r, Str $endEventName, Bool $eolHandling, Bool $resume, State $previousState? --> Parser) {
-    #
-    # Start recognizer if not resuming
+method _generic_parse(Context $context, Str $endEventName, Bool $eolHandling, Bool $resume --> Parser) {
+  #
+  # Start recognizer if not resuming
     #
     $r->read(\'  ') if (! $resume);
     #
