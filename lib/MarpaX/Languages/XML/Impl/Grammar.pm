@@ -9,11 +9,13 @@ class MarpaX::Languages::XML::Impl::Grammar {
   use MarpaX::Languages::XML::Impl::Grammar::Data;
   use MarpaX::Languages::XML::Role::Grammar;
   use MarpaX::Languages::XML::Type::CompiledGrammar -all;
+  use MarpaX::Languages::XML::Type::LexemesMinlength -all;
   use MarpaX::Languages::XML::Type::LexemesRegexp -all;
   use MarpaX::Languages::XML::Type::LexemesExclusionsRegexp -all;
   use MarpaX::Languages::XML::Type::XmlVersion -all;
   use MooX::HandlesVia;
   use MooX::Role::Logger;
+  use Types::Common::Numeric -all;
 
   has compiledGrammar         => ( is => 'ro', isa => InstanceOf['Marpa::R2::Scanless::G'], lazy => 1, builder => 1 );
   has lexemesRegexp           => ( is => 'ro', isa => LexemesRegexp,                        lazy => 1, builder => 1,
@@ -21,6 +23,13 @@ class MarpaX::Languages::XML::Impl::Grammar {
                                    handles => {
                                                exists_lexemesRegexp => 'exists',
                                                get_lexemesRegexp => 'get'
+                                              }
+                                 );
+  has lexemesMinlength        => ( is => 'ro', isa => LexemesMinlength,                        lazy => 1, builder => 1,
+                                   handles_via => 'Hash',
+                                   handles => {
+                                               exists_lexemesMinlength => 'exists',
+                                               get_lexemesMinlength => 'get'
                                               }
                                  );
   has lexemesExclusionsRegexp => ( is => 'ro', isa => LexemesExclusionsRegexp,              lazy => 1, builder => 1,
@@ -45,17 +54,27 @@ class MarpaX::Languages::XML::Impl::Grammar {
                                               elements_lexemesRegexpBySymbolId  => 'elements'
                                              }
                                  );
+  has lexemesMinlengthBySymbolId => (
+                                     is  => 'ro',
+                                     isa => ArrayRef[PositiveInt|Undef],
+                                     lazy  => 1,
+                                     builder => 1,
+                                     handles_via => 'Array',
+                                     handles => {
+                                                 elements_lexemesMinlengthBySymbolId  => 'elements'
+                                                }
+                                 );
 
-has lexemesExclusionsRegexpBySymbolId => (
-                                          is  => 'ro',
-                                          isa => ArrayRef[RegexpRef|Undef],
-                                          lazy  => 1,
-                                          builder => 1,
-                                          handles_via => 'Array',
-                                          handles => {
-                                                      elements_lexemesExclusionsRegexpBySymbolId  => 'elements'
-                                                     }
-                                         );
+  has lexemesExclusionsRegexpBySymbolId => (
+                                            is  => 'ro',
+                                            isa => ArrayRef[RegexpRef|Undef],
+                                            lazy  => 1,
+                                            builder => 1,
+                                            handles_via => 'Array',
+                                            handles => {
+                                                        elements_lexemesExclusionsRegexpBySymbolId  => 'elements'
+                                                       }
+                                           );
 
   our $PACKAGE_DATA = 'MarpaX::Languages::XML::Impl::Grammar::Data';
 
@@ -87,6 +106,8 @@ has lexemesExclusionsRegexpBySymbolId => (
      _ALPHAMANY                     => qr{\G[0-9a-fA-F]++}p,
      _ENCNAME                       => qr{\G[A-Za-z][A-Za-z0-9._\-]*+}p,
      _S                             => qr{\G[\x{20}\x{9}\x{D}\x{A}]++}p,
+     _PUBIDCHARDQUOTEMANY           => qr{\G[a-zA-Z0-9\-'()+,./:=?;!*#@\$_%\x{20}\x{D}\x{A}]++}p,
+     _PUBIDCHARSQUOTEMANY           => qr{\G[a-zA-Z0-9\-()+,./:=?;!*#@\$_%\x{20}\x{D}\x{A}]++}p,
      #
      # An NCNAME is a NAME minus the ':'
      #
@@ -94,8 +115,6 @@ has lexemesExclusionsRegexpBySymbolId => (
      #
      # These are the lexemes of predicted size
      #
-     _PUBIDCHARDQUOTEMANY           => qr{\G[a-zA-Z0-9\-'()+,./:=?;!*#@\$_%\x{20}\x{D}\x{A}]++}p,
-     _PUBIDCHARSQUOTEMANY           => qr{\G[a-zA-Z0-9\-()+,./:=?;!*#@\$_%\x{20}\x{D}\x{A}]++}p,
      _SPACE                         => qr{\G\x{20}}p,
      _DQUOTE                        => qr{\G"}p,
      _SQUOTE                        => qr{\G'}p,
@@ -189,6 +208,131 @@ has lexemesExclusionsRegexpBySymbolId => (
      _XMLNS                         => qr{\Gxmlns}p,
     );
 
+  our %LEXEMES_MINLENGTH =
+    (
+     #
+     # These are the lexemes of unknown size
+     #
+     _NAME                          => 1,
+     _NMTOKENMANY                   => 1,
+     _ENTITYVALUEINTERIORDQUOTEUNIT => 1,
+     _ENTITYVALUEINTERIORSQUOTEUNIT => 1,
+     _ATTVALUEINTERIORDQUOTEUNIT    => 1,
+     _ATTVALUEINTERIORSQUOTEUNIT    => 1,
+     _NOT_DQUOTEMANY                => 1,
+     _NOT_SQUOTEMANY                => 1,
+     _CHARDATAMANY                  => 1,
+     _COMMENTCHARMANY               => 1,
+     _PITARGET                      => 1,
+     _CDATAMANY                     => 1,
+     _PICHARDATAMANY                => 1,
+     _IGNOREMANY                    => 1,
+     _DIGITMANY                     => 1,
+     _ALPHAMANY                     => 1,
+     _ENCNAME                       => 1,
+     _S                             => 1,
+     _PUBIDCHARDQUOTEMANY           => 1,
+     _PUBIDCHARSQUOTEMANY           => 1,
+     #
+     # An NCNAME is a NAME minus the ':'
+     #
+     _NCNAME                        => 1,
+     #
+     # These are the lexemes of predicted size
+     #
+     _SPACE                         => length("\x{20}"),
+     _DQUOTE                        => length('"'),
+     _SQUOTE                        => length("'"),
+     _COMMENT_START                 => length("<!--"),
+     _COMMENT_END                   => length("-->"),
+     _PI_START                      => length("<?"),
+     _PI_END                        => length("?>"),
+     _CDATA_START                   => length("<![CDATA["),
+     _CDATA_END                     => length("]]>"),
+     _XMLDECL_START                 => length("<?xml"),
+     _XMLDECL_END                   => length("?>"),
+     _VERSION                       => length("version"),
+     _EQUAL                         => length("="),
+     _VERSIONNUM                    => 3, # "1.0" or "1.1"
+     _DOCTYPE_START                 => length("<!DOCTYPE"),
+     _DOCTYPE_END                   => length(">"),
+     _LBRACKET                      => length("["),
+     _RBRACKET                      => length("]"),
+     _STANDALONE                    => length("standalone"),
+     _YES                           => length("yes"),
+     _NO                            => length("no"),
+     _ELEMENT_START                 => length("<"),
+     _ELEMENT_END                   => length(">"),
+     _ETAG_START                    => length("</"),
+     _ETAG_END                      => length(">"),
+     _EMPTYELEM_END                 => length("/>"),
+     _ELEMENTDECL_START             => length("<!ELEMENT"),
+     _ELEMENTDECL_END               => length(">"),
+     _EMPTY                         => length("EMPTY"),
+     _ANY                           => length("ANY"),
+     _QUESTIONMARK                  => length("?"),
+     _STAR                          => length("*"),
+     _PLUS                          => length("+"),
+     _OR                            => length("|"),
+     _CHOICE_START                  => length("("),
+     _CHOICE_END                    => length(")"),
+     _SEQ_START                     => length("("),
+     _SEQ_END                       => length(")"),
+     _MIXED_START                   => length("("),
+     _MIXED_END1                    => length(")*"),
+     _MIXED_END2                    => length(")"),
+     _COMMA                         => length(","),
+     _PCDATA                        => length("#PCDATA"),
+     _ATTLIST_START                 => length("<!ATTLIST"),
+     _ATTLIST_END                   => length(">"),
+     _CDATA                         => length("CDATA"),
+     _ID                            => length("ID"),
+     _IDREF                         => length("IDREF"),
+     _IDREFS                        => length("IDREFS"),
+     _ENTITY                        => length("ENTITY"),
+     _ENTITIES                      => length("ENTITIES"),
+     _NMTOKEN                       => length("NMTOKEN"),
+     _NMTOKENS                      => length("NMTOKENS"),
+     _NOTATION                      => length("NOTATION"),
+     _NOTATION_START                => length("("),
+     _NOTATION_END                  => length(")"),
+     _ENUMERATION_START             => length("("),
+     _ENUMERATION_END               => length(")"),
+     _REQUIRED                      => length("#REQUIRED"),
+     _IMPLIED                       => length("#IMPLIED"),
+     _FIXED                         => length("#FIXED"),
+     _INCLUDE                       => length("INCLUDE"),
+     _IGNORE                        => length("IGNORE"),
+     _INCLUDESECT_START             => length("<!["),
+     _INCLUDESECT_END               => length("]]>"),
+     _IGNORESECT_START              => length("<!["),
+     _IGNORESECT_END                => length("]]>"),
+     _IGNORESECTCONTENTSUNIT_START  => length("<!["),
+     _IGNORESECTCONTENTSUNIT_END    => length("]]>"),
+     _CHARREF_START1                => length("&#"),
+     _CHARREF_END1                  => length(";"),
+     _CHARREF_START2                => length("&#x"),
+     _CHARREF_END2                  => length(";"),
+     _ENTITYREF_START               => length("&"),
+     _ENTITYREF_END                 => length(";"),
+     _PEREFERENCE_START             => length("%"),
+     _PEREFERENCE_END               => length(";"),
+     _ENTITY_START                  => length("<!ENTITY"),
+     _ENTITY_END                    => length(">"),
+     _PERCENT                       => length("%"),
+     _SYSTEM                        => length("SYSTEM"),
+     _PUBLIC                        => length("PUBLIC"),
+     _NDATA                         => length("NDATA"),
+     _TEXTDECL_START                => length("<?xml"),
+     _TEXTDECL_END                  => length("?>"),
+     _ENCODING                      => length("encoding"),
+     _NOTATIONDECL_START            => length("<!NOTATION"),
+     _NOTATIONDECL_END              => length(">"),
+     _COLON                         => length(":"),
+     _XMLNSCOLON                    => length("xmlns:"),
+     _XMLNS                         => length("xmlns"),
+    );
+
   our %LEXEMESEXCLUSIONS_REGEXP_COMMON =
     (
      _PITARGET => qr{^xml$}i,
@@ -248,6 +392,14 @@ has lexemesExclusionsRegexpBySymbolId => (
     return \%LEXEMES_REGEXP_COMMON;
   }
 
+  method _build_lexemesMinlength {
+    #
+    # Return the common things (which are the XML1.0 regexps)
+    # overloaded by the the XML1.1 changes
+    #
+    return \%LEXEMES_MINLENGTH;
+  }
+
   method _build_lexemesExclusionsRegexp {
     #
     # Return the common things (which are the XML1.0 regexps)
@@ -265,6 +417,20 @@ has lexemesExclusionsRegexpBySymbolId => (
     foreach (keys %{$symbol_by_name_hash}) {
       if ($self->exists_lexemesRegexp($_)) {
         $array[$symbol_by_name_hash->{$_}] = $self->get_lexemesRegexp($_);
+      }
+    }
+    return \@array;
+  }
+
+  method _build_lexemesMinlengthBySymbolId {
+    my $symbol_by_name_hash = $self->compiledGrammar->symbol_by_name_hash;
+    #
+    # Build the regexp list as an array using symbol ids as indice
+    #
+    my @array = ();
+    foreach (keys %{$symbol_by_name_hash}) {
+      if ($self->exists_lexemesMinlength($_)) {
+        $array[$symbol_by_name_hash->{$_}] = $self->get_lexemesMinlength($_);
       }
     }
     return \@array;

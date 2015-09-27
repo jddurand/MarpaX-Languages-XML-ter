@@ -534,6 +534,7 @@ event 'XMLDECL_START_COMPLETED' =off = completed <XMLDECL_START>
 event 'XMLDECL_END_COMPLETED'   =off = completed <XMLDECL_END>
 event 'VERSIONNUM_COMPLETED'    =off = completed <VERSIONNUM>
 event 'ELEMENT_START_COMPLETED' =off = completed <ELEMENT_START>
+event 'prolog_COMPLETED'        =off = completed <prolog>
 
 #
 # Internal nullable rule to force the recognizer to stop immeidately,

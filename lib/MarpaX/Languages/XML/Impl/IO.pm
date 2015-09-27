@@ -98,6 +98,9 @@ class MarpaX::Languages::XML::Impl::IO {
   }
 
   method eof( --> Bool) {
+    my $io = $self->_io;
+    print STDERR "==> IO " . $io . "\n";
+    print STDERR "==> IO " . $io->eof . "\n";
     return $self->_io->eof;
   }
 

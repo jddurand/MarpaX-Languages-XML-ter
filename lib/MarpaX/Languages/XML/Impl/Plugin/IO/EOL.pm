@@ -7,7 +7,8 @@ use Moops;
 class MarpaX::Languages::XML::Impl::Plugin::IO::EOL :assertions {
   use MarpaX::Languages::XML::Impl::Plugin;
   use MarpaX::Languages::XML::Type::PluggableConstant -all;
-  use MarpaX::Languages::XML::Type::State -all;
+  use MarpaX::Languages::XML::Type::Context -all;
+  use MarpaX::Languages::XML::Type::Dispatcher -all;
   use MooX::Role::Logger;
   use MooX::Role::Pluggable::Constants;
 
@@ -20,7 +21,8 @@ class MarpaX::Languages::XML::Impl::Plugin::IO::EOL :assertions {
                                           }
                           );
 
-  method P_EOL(Dispatcher $dispatcher, State $state --> PluggableConstant) {
+  method P_EOL(Dispatcher $dispatcher, Context $context --> PluggableConstant) {
+    $self->_logger->tracef('P_EOL');
     return EAT_CLIENT   # No ';' for fewer hops
   }
 

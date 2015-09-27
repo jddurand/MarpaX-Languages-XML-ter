@@ -5,6 +5,7 @@ use Moops;
 # ABSTRACT: Parser implementation
 
 class MarpaX::Languages::XML::Impl::Parser {
+  use List::Util qw/max/;
   use Marpa::R2;
   use MarpaX::Languages::XML::Impl::Context;
   use MarpaX::Languages::XML::Impl::Dispatcher;
@@ -24,6 +25,8 @@ class MarpaX::Languages::XML::Impl::Parser {
   use MarpaX::Languages::XML::Type::XmlVersion -all;
   use MarpaX::Languages::XML::Marpa::R2::Hooks;
   use MooX::HandlesVia;
+  use MooX::Role::Logger;
+
   use Throwable::Factory
     ParseException    => undef
     ;
@@ -116,13 +119,13 @@ class MarpaX::Languages::XML::Impl::Parser {
     #
     # Enable these events
     #
-    foreach (qw/ENCNAME_COMPLETED XMLDECL_START_COMPLETED XMLDECL_END_COMPLETED VERSIONNUM_COMPLETED ELEMENT_START_COMPLETED/) {
+    foreach (qw/ENCNAME_COMPLETED XMLDECL_START_COMPLETED XMLDECL_END_COMPLETED VERSIONNUM_COMPLETED ELEMENT_START_COMPLETED prolog_COMPLETED/) {
       $recognizer->activate($_, 1);
     }
     #
     # And parse prolog
     #
-    return $self->_generic_parse($context, 'prolog$', true);
+    return $self->_generic_parse($context, 'prolog$', false);
   }
 
   method _parse_element(Context $context --> Parser) {
@@ -134,7 +137,8 @@ class MarpaX::Languages::XML::Impl::Parser {
   method _reduce(Context $context --> Parser) {
     my $io = $context->io;
     my $pos = pos($MarpaX::Languages::XML::Impl::Parser::buffer);
-    if ($pos >= $io->length) {
+    my $length = length($MarpaX::Languages::XML::Impl::Parser::buffer);
+    if ($pos >= $length) {
       $MarpaX::Languages::XML::Impl::Parser::buffer = '';
     } else {
       substr($MarpaX::Languages::XML::Impl::Parser::buffer, 0, $pos, '');
@@ -150,7 +154,7 @@ class MarpaX::Languages::XML::Impl::Parser {
   method _read(Context $context, Bool $eolHandling --> Parser) {
 
     $context->io->read;
-    $context->dispatcher->process('EOL', $MarpaX::Languages::XML::Impl::Parser::buffer) if ($eolHandling);
+    $context->dispatcher->process('EOL', $context) if ($eolHandling);
 
     return $self;
   }
@@ -175,9 +179,11 @@ class MarpaX::Languages::XML::Impl::Parser {
     my $remaining                      = $length - $pos;
     my @lexeme_match_by_symbol_ids     = $grammar->elements_lexemesRegexpBySymbolId;
     my @lexeme_exclusion_by_symbol_ids = $grammar->elements_lexemesExclusionsRegexpBySymbolId;
+    my @lexeme_minlength_by_symbol_ids = $grammar->elements_lexemesMinlengthBySymbolId;
     my $previous_can_stop              = 0;
     my $_XMLNSCOLON_ID                 = $grammar->compiledGrammar->symbol_by_name_hash->{'_XMLNSCOLON'};
     my $_XMLNS_ID                      = $grammar->compiledGrammar->symbol_by_name_hash->{'_XMLNS'};
+    my $eof                            = 0;
     #
     # Make sure that this variable is initialized to a false value
     #
@@ -187,7 +193,10 @@ class MarpaX::Languages::XML::Impl::Parser {
     #
     while (1) {
       my @event_names                      = map { $_->[0] } @{$recognizer->events()};
+      $self->_logger->debugf('Events  : %s', $recognizer->events);
       my @terminals_expected_to_symbol_ids = $recognizer->terminals_expected_to_symbol_ids();
+      $self->_logger->debugf('Expected: %s', $recognizer->terminals_expected);
+      $self->_logger->tracef('     Ids: %s', \@terminals_expected_to_symbol_ids);
       #
       # First the events
       #
@@ -208,20 +217,48 @@ class MarpaX::Languages::XML::Impl::Parser {
       }
       #
       # Then the expected lexemes
-      # This is a do {} while () because of end-of-buffer management
       #
-      my $terminals_expected_again = 0;
-      do {
+      while (1) {
         my %length = ();
         my $max_length = 0;
-        if (@terminals_expected_to_symbol_ids && ! $length) {
-          $self->_read($context, $eolHandling);
-          $length = $io->length;
-          if ($length <= 0) {
-            $self->_logger->debugf('EOF');
-            return $self;
+        if (@terminals_expected_to_symbol_ids) {
+          if (! $length) {
+            $self->_read($context, $eolHandling);
+            $length = length($MarpaX::Languages::XML::Impl::Parser::buffer);
+            if ($length <= 0) {
+              $self->_logger->debugf('EOF');
+              return $self;
+            }
+            pos($MarpaX::Languages::XML::Impl::Parser::buffer) = 0;
+          }
+          my @undecidable = grep { $lexeme_minlength_by_symbol_ids[$_] > $remaining } @terminals_expected_to_symbol_ids;
+          if (@undecidable && ! $eof) {
+            my $needed = max(map { $lexeme_minlength_by_symbol_ids[$_] } @undecidable) - $remaining;
+            $self->_logger->tracef('Undecidable: need at least %d characters more', $needed);
+            my $old_block_size_value = $io->block_size_value;
+            if ($old_block_size_value != $needed) {
+              $io->block_size($needed);
+            }
+            $self->_read($context, $eolHandling);
+            if ($old_block_size_value != $needed) {
+              $io->block_size($old_block_size_value);
+            }
+            pos($MarpaX::Languages::XML::Impl::Parser::buffer) = $pos;
+            my $new_length = length($MarpaX::Languages::XML::Impl::Parser::buffer);
+            if ($new_length > $length) {
+              #
+              # Something was read
+              #
+              $length = $new_length;
+              $remaining = $length - $pos;
+              next;
+            } else {
+              $self->_logger->debugf('EOF');
+              $eof = true;
+            }
           }
         }
+        my $terminals_expected_again = 0;
         foreach (@terminals_expected_to_symbol_ids) {
           #
           # It is a configuration error to have $lexeme_match_by_symbol_ids{$_} undef at this stage
@@ -235,10 +272,10 @@ class MarpaX::Languages::XML::Impl::Parser {
             #
             # Match reaches end of buffer ?
             #
-            if (($length_matched_data >= $remaining) && (! $io->eof)) { # Match up to the end of buffer is avoided as much as possible
+            if (($length_matched_data >= $remaining) && (! $eof)) { # Match up to the end of buffer is avoided as much as possible
               $self->_reduce($context)->_read($context, $eolHandling);
-              $pos = 0;
-              $length = $io->length;
+              $pos = pos($MarpaX::Languages::XML::Impl::Parser::buffer) = 0;
+              $length = length($MarpaX::Languages::XML::Impl::Parser::buffer);
               if ($length > $remaining) {
                 #
                 # Something was read
@@ -247,8 +284,9 @@ class MarpaX::Languages::XML::Impl::Parser {
                 $terminals_expected_again = 1;
                 last;
               } else {
-                $self->_logger->debugf('EOF');
                 $remaining = $length;
+                $self->_logger->debugf('EOF');
+                $eof = true;
               }
             }
             #
@@ -263,6 +301,7 @@ class MarpaX::Languages::XML::Impl::Parser {
             $max_length = $length_matched_data if ($length_matched_data > $max_length);
           }
         }
+        next if ($terminals_expected_again);
         #
         # Push terminals if any
         #
@@ -294,13 +333,13 @@ class MarpaX::Languages::XML::Impl::Parser {
             %length = map {
               $_ => $length{$_}
             } grep {
-              ($length{$_} == $max_length) ? do { do { $data //= substr($_[1], $pos, $max_length)}, 1 } : 0
+              ($length{$_} == $max_length) ? do { do { $data //= substr($MarpaX::Languages::XML::Impl::Parser::buffer, $pos, $max_length)}, 1 } : 0
             } keys %length;
           }
           #
           # Prepare trackers change
           #
-          my $next_pos        = $pos + $max_length;
+          my $next_pos  = $pos + $max_length;
           my $linebreaks;
           my $next_column;
           my $next_line;
@@ -311,6 +350,7 @@ class MarpaX::Languages::XML::Impl::Parser {
             $next_line   = $line;
             $next_column = $column + $max_length;
           }
+          $self->_logger->debugf('Match: %s', {map { $compiledGrammar->symbol_name($_) => $length{$_} } keys %length});
           foreach (keys %length) {
             #
             # Remember last data for this lexeme
@@ -335,7 +375,7 @@ class MarpaX::Languages::XML::Impl::Parser {
           #
           # Reposition internal buffer
           #
-          pos($MarpaX::Languages::XML::Impl::Parser::buffer) = $pos;
+          $pos = pos($MarpaX::Languages::XML::Impl::Parser::buffer) = $next_pos;
         } else {
           #
           # No prediction: this is ok only if grammar end_of_grammar flag is set
@@ -346,7 +386,8 @@ class MarpaX::Languages::XML::Impl::Parser {
             ParseException->throw('No predicted lexeme found and end of grammar not reached');
           }
         }
-      } while ($terminals_expected_again);
+        last;
+      }
       #
       # Go to next events
       #
@@ -359,6 +400,7 @@ class MarpaX::Languages::XML::Impl::Parser {
   }
 
   with 'MarpaX::Languages::XML::Role::Parser';
+  with 'MooX::Role::Logger';
 }
 
 1;

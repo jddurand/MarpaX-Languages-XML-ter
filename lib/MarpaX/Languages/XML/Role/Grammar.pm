@@ -19,6 +19,13 @@ role MarpaX::Languages::XML::Role::Grammar {
   requires 'lexemesRegexpBySymbolId';
   requires 'elements_lexemesRegexpBySymbolId';
 
+  requires 'lexemesMinlength';
+  requires 'exists_lexemesMinlength';
+  requires 'get_lexemesMinlength';
+
+  requires 'lexemesMinlengthBySymbolId';
+  requires 'elements_lexemesMinlengthBySymbolId';
+
   requires 'lexemesExclusionsRegexp';
   requires 'exists_lexemesExclusionsRegexp';
   requires 'get_lexemesExclusionsRegexp';
