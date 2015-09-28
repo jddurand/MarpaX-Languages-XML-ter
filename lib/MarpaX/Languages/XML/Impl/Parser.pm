@@ -72,102 +72,89 @@ class MarpaX::Languages::XML::Impl::Parser {
   }
 
   method _build__grammars_events( --> HashRef[HashRef[HashRef[Str]]]) {
-    return
-      {
-       prolog =>
-       {
-        completed => {
-                      ENCNAME_COMPLETED       => 'ENCNAME',
-                      XMLDECL_START_COMPLETED => 'XMLDECL_START',
-                      XMLDECL_END_COMPLETED   => 'XMLDECL_END',
-                      VERSIONNUM_COMPLETED    => 'VERSIONNUM',
-                      ELEMENT_START_COMPLETED => 'ELEMENT_START',
-                      prolog_COMPLETED        => 'prolog'
-                     },
-        nulled => {
-                   start_root_element      => 'start_root_element'
-                  }
-       },
-       element =>
-       {
-        completed => {
-                      element_COMPLETED       => 'element',
-                     },
-        nulled => {
-                   start_element      => 'start_element',
-                   end_element        => 'end_element'
-                  }
-       },
-       MiscAny =>
-       {
-        completed => {
-                      MiscAny_COMPLETED       => 'MiscAny',
-                     }
-       }
-      }
-      ;
+    return {
+            prolog => {
+                       completed => {
+                                     ENCNAME_COMPLETED       => 'ENCNAME',
+                                     XMLDECL_START_COMPLETED => 'XMLDECL_START',
+                                     XMLDECL_END_COMPLETED   => 'XMLDECL_END',
+                                     VERSIONNUM_COMPLETED    => 'VERSIONNUM',
+                                     ELEMENT_START_COMPLETED => 'ELEMENT_START',
+                                     prolog_COMPLETED        => 'prolog'
+                                    }
+                      },
+            element => {
+                        completed => {
+                                      element_COMPLETED       => 'element',
+                                     },
+                        nulled => {
+                                   start_element      => 'start_element',
+                                   end_element        => 'end_element'
+                                  }
+                       },
+            MiscAny => {
+                        completed => {
+                                      MiscAny_COMPLETED       => 'MiscAny',
+                                     }
+                       }
+           };
   }
 
   method _build__grammars_demolish( --> HashRef[CodeRef]) {
-    return
-      {
-       #
-       # After prolog we want to continue to element
-       #
-       prolog =>
-       sub {
-         my ($selfcontext) = @_;
-         #
-         # Here $self is the parser, and we are executed in the $selfcontext context
-         #
-         $self->_logger->tracef('prolog destroy, number of remaining context is %d', $self->_count_contexts);
-         my $grammar = $self->_get_grammar('element');
-         my $context = MarpaX::Languages::XML::Impl::Context->new(
-                                                                  io               => $selfcontext->io,
-                                                                  grammar          => $grammar,
-                                                                  encoding         => $selfcontext->encoding,
-                                                                  dispatcher       => $selfcontext->dispatcher,
-                                                                  namespaceSupport => $selfcontext->namespaceSupport,
-                                                                  endEventName     => 'element_COMPLETED',
-                                                                  demolish         => $self->_get_grammar_demolish('element')
-                                                                 );
-         $self->_push_context($context);
-       },
-       #
-       # After the root element we want to continue to MiscAny
-       #
-       element =>
-       sub {
-         my ($selfcontext) = @_;
+    return {
+            #
+            # After prolog we want to continue to element
+            #
+            prolog => sub {
+              my ($selfcontext) = @_;
+              #
+              # Here $self is the parser, and we are executed in the $selfcontext context
+              #
+              $self->_logger->tracef('prolog destroy, number of remaining context is %d', $self->_count_contexts);
+              my $grammar = $self->_get_grammar('element');
+              my $context = MarpaX::Languages::XML::Impl::Context->new(
+                                                                       io               => $selfcontext->io,
+                                                                       grammar          => $grammar,
+                                                                       encoding         => $selfcontext->encoding,
+                                                                       dispatcher       => $selfcontext->dispatcher,
+                                                                       namespaceSupport => $selfcontext->namespaceSupport,
+                                                                       endEventName     => 'element_COMPLETED',
+                                                                       demolish         => $self->_get_grammar_demolish('element')
+                                                                      );
+              $self->_push_context($context);
+            },
+            #
+            # After the root element we want to continue to MiscAny
+            #
+            element => sub {
+              my ($selfcontext) = @_;
 
-         $self->_logger->tracef('element destroy, number of remaining context is %d', $self->_count_contexts);
-         return if ($self->_count_contexts > 0);
-         #
-         # Here $self is the parser, and we are executed in the $selfcontext context
-         #
-         my $grammar = $self->_get_grammar('MiscAny');
-         my $context = MarpaX::Languages::XML::Impl::Context->new(
-                                                                  io               => $selfcontext->io,
-                                                                  grammar          => $grammar,
-                                                                  encoding         => $selfcontext->encoding,
-                                                                  dispatcher       => $selfcontext->dispatcher,
-                                                                  namespaceSupport => $selfcontext->namespaceSupport,
-                                                                  endEventName     => 'MiscAny_COMPLETED',
-                                                                  demolish         => $self->_get_grammar_demolish('MiscAny')
-                                                                 );
-         $self->_push_context($context);
-       },
-       #
-       # After MiscAny, nothing
-       #
-       MiscAny =>
-       sub {
-         my ($selfcontext) = @_;
-         $self->_logger->tracef('MiscAny destroy, number of remaining context is %d', $self->_count_contexts);
-         return;
-       }
-      }
-      ;
+              $self->_logger->tracef('element destroy, number of remaining context is %d', $self->_count_contexts);
+              return if ($self->_count_contexts > 0);
+              #
+              # Here $self is the parser, and we are executed in the $selfcontext context
+              #
+              my $grammar = $self->_get_grammar('MiscAny');
+              my $context = MarpaX::Languages::XML::Impl::Context->new(
+                                                                       io               => $selfcontext->io,
+                                                                       grammar          => $grammar,
+                                                                       encoding         => $selfcontext->encoding,
+                                                                       dispatcher       => $selfcontext->dispatcher,
+                                                                       namespaceSupport => $selfcontext->namespaceSupport,
+                                                                       endEventName     => 'MiscAny_COMPLETED',
+                                                                       demolish         => $self->_get_grammar_demolish('MiscAny')
+                                                                      );
+              $self->_push_context($context);
+            },
+            #
+            # After MiscAny, nothing
+            #
+            MiscAny =>  sub {
+              my ($selfcontext) = @_;
+              $self->_logger->tracef('MiscAny destroy, number of remaining context is %d', $self->_count_contexts);
+              return;
+            }
+           };
   }
 
   method _build__grammars( --> HashRef[Grammar]) {
