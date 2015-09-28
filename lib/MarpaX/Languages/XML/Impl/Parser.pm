@@ -103,7 +103,6 @@ class MarpaX::Languages::XML::Impl::Parser {
     # Prepare variables to build the context
     #
     my $io         = MarpaX::Languages::XML::Impl::IO->new(source => $source);
-    my $grammar    = $self->_get_grammar('document');
     my $dispatcher = MarpaX::Languages::XML::Impl::Dispatcher->new();
     #
     # We want to handle buffer direcly with no COW: the buffer scalar is localized
@@ -113,20 +112,20 @@ class MarpaX::Languages::XML::Impl::Parser {
     #
     # Create context
     #
+    my $grammar = $self->_get_grammar('document');
     my $context = MarpaX::Languages::XML::Impl::Context->new(io => $io, grammar => $grammar, dispatcher => $dispatcher);
-
     #
     # And events framework. They are:
     # - WFC constraints (configurable)
     # - VC constraints (configurable)
     # - other events (not configurable)
     #
-    my $pluginFactory = MarpaX::Languages::XML::Impl::PluginFactory->new(grammar => $grammar);
+    my $pluginFactory = MarpaX::Languages::XML::Impl::PluginFactory->new();
     $pluginFactory
-      ->registerPlugins($grammar, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::WFC',     $self->elements_wfc)
-      ->registerPlugins($grammar, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::VC',      $self->elements_vc)
-      ->registerPlugins($grammar, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::IO',      ':all')
-      ->registerPlugins($grammar, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::General', ':all')
+      ->registerPlugins($self->xmlVersion, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::WFC',     $self->elements_wfc)
+      ->registerPlugins($self->xmlVersion, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::VC',      $self->elements_vc)
+      ->registerPlugins($self->xmlVersion, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::IO',      ':all')
+      ->registerPlugins($self->xmlVersion, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::General', ':all')
       ;
     #
     # Go
@@ -134,6 +133,28 @@ class MarpaX::Languages::XML::Impl::Parser {
     $io->block_size($self->blockSize);
 
     return $self->_parse_prolog($context)->_parse_element($context)->rc;
+  }
+
+  method _parse_document(Context $context --> Parser) {
+    #
+    # Get compiled grammar
+    #
+    my $compiledGrammar = $context->grammar->compiledGrammar;
+    #
+    # Get symbols IDs of interest from the compiled grammar
+    #
+    my  ($_ENCNAME_ID, $_XMLDECL_START_ID, $_XMLDECL_END_ID, $_VERSIONNUM_ID, $_ELEMENT_START_ID) = @{$compiledGrammar->symbol_by_name_hash}
+      {qw/_ENCNAME_ID   _XMLDECL_START_ID   _XMLDECL_END_ID   _VERSIONNUM_ID   _ELEMENT_START_ID/};
+    #
+    # Create a recognizer and initalize it
+    #
+    my $recognizer = Marpa::R2::Scanless::R->new({grammar => $compiledGrammar});
+    $recognizer->read(\'  ');
+    $context->recognizer($recognizer);
+    #
+    # and parse prolog
+    #
+    return $self->_generic_parse($context, 'prolog$', false);
   }
 
   method _parse_prolog(Context $context --> Parser) {
@@ -260,6 +281,7 @@ class MarpaX::Languages::XML::Impl::Parser {
               return $self;
             }
             pos($MarpaX::Languages::XML::Impl::Parser::buffer) = 0;
+            $remaining = $length;
           }
           my @undecidable = grep { $lexeme_minlength_by_symbol_ids[$_] > $remaining } @terminals_expected_to_symbol_ids;
           if (@undecidable && ! $eof) {

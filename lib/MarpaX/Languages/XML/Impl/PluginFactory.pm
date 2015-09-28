@@ -8,7 +8,7 @@ class MarpaX::Languages::XML::Impl::PluginFactory {
   use Module::Find qw/findallmod/;
   use Class::Load qw/try_load_class/;
   use MarpaX::Languages::XML::Role::PluginFactory;
-  use MarpaX::Languages::XML::Type::Grammar -all;
+  use MarpaX::Languages::XML::Type::XmlVersion -all;
   use MarpaX::Languages::XML::Type::Dispatcher -all;
   use MarpaX::Languages::XML::Type::PluginFactory -all;
   use MooX::Role::Logger;
@@ -45,7 +45,7 @@ class MarpaX::Languages::XML::Impl::PluginFactory {
     return @list;
   }
 
-  method registerPlugins(Grammar $grammar, Dispatcher $dispatcher, Str $package, @plugins  --> PluginFactory) {
+  method registerPlugins(XmlVersion $xmlVersion, Dispatcher $dispatcher, Str $package, @plugins  --> PluginFactory) {
     my @list = $self->_listPlugins($package, @plugins);
     if (! @list) {
       $self->_logger->tracef('No subclass for %s', $package);
@@ -70,7 +70,7 @@ class MarpaX::Languages::XML::Impl::PluginFactory {
         $errorMessage = $_;
       };
       if ($success) {
-        $dispatcher->plugin_add($pluginClass, $pluginClass->new(grammar => $grammar));
+        $dispatcher->plugin_add($pluginClass, $pluginClass->new(xmlVersion => $xmlVersion));
       } else {
         $self->_logger->tracef('Failure to load %s: %s', $pluginClass, $errorMessage);
       }
