@@ -5,6 +5,7 @@ use Moops;
 # ABSTRACT: Parser role
 
 role MarpaX::Languages::XML::Role::Parser {
+
   # VERSION
 
   # AUTHORITY
@@ -16,6 +17,7 @@ role MarpaX::Languages::XML::Role::Parser {
   requires 'blockSize';
   requires 'parse';
   requires 'rc';
+  requires 'startSymbol';
 }
 
 1;

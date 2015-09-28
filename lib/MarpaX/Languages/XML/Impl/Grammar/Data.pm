@@ -25,7 +25,7 @@ lexeme default = action => [start,length,value,name] forgiving => 1
 start                         ::= $START
 MiscAny                       ::= Misc*
 # Note: end_document is when either we abandoned parsing or reached the end of input of the 'document' grammar
-document                      ::= (internal_event_for_immediate_pause) (start_document) prolog element MiscAny
+document                      ::= prolog (start_root_element) element (end_root_element) MiscAny
 Name                          ::= NAME
 Names                         ::= Name+ separator => SPACE proper => 1
 Nmtoken                       ::= NMTOKENMANY
@@ -68,7 +68,7 @@ CharData                      ::= CHARDATAMANY
 
 CommentCharAny                ::= COMMENTCHARMANY
 CommentCharAny                ::=
-Comment                       ::= COMMENT_START CommentCharAny (comment) COMMENT_END
+Comment                       ::= COMMENT_START CommentCharAny COMMENT_END
 
 PI                            ::= PI_START PITarget S PICHARDATAMANY PI_END
                                 | PI_START PITarget S                PI_END
@@ -80,10 +80,10 @@ CDStart                       ::= CDATA_START
 CData                         ::= CDATAMANY
 CData                         ::=
 CDEnd                         ::= CDATA_END
-prolog                        ::= XMLDecl MiscAny
-prolog                        ::=         MiscAny
-prolog                        ::= XMLDecl MiscAny doctypedecl MiscAny
-prolog                        ::=         MiscAny doctypedecl MiscAny
+prolog                        ::= (internal_event_for_immediate_pause) XMLDecl MiscAny
+prolog                        ::= (internal_event_for_immediate_pause)         MiscAny
+prolog                        ::= (internal_event_for_immediate_pause) XMLDecl MiscAny doctypedecl MiscAny
+prolog                        ::= (internal_event_for_immediate_pause)         MiscAny doctypedecl MiscAny
 XMLDecl                       ::= XMLDECL_START VersionInfo EncodingDecl SDDecl S XMLDECL_END
 XMLDecl                       ::= XMLDECL_START VersionInfo EncodingDecl SDDecl   XMLDECL_END
 XMLDecl                       ::= XMLDECL_START VersionInfo EncodingDecl        S XMLDECL_END
@@ -532,12 +532,12 @@ COLON ::= _COLON
 event '!internal_event_for_immediate_pause' = nulled <internal_event_for_immediate_pause>
 internal_event_for_immediate_pause ::= ;
 #
-# SAX nullable rules
+# Nullable rules
 #
-start_document ::= ;
-start_element  ::= ;
-end_element    ::= ;
-comment        ::= ;
+start_root_element  ::= ;
+end_root_element    ::= ;
+start_element       ::= ;
+end_element         ::= ;
 #
 # Events can be added on-the-fly at grammar generation
 #

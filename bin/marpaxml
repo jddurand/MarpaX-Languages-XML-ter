@@ -9,7 +9,6 @@ use POSIX qw/EXIT_FAILURE EXIT_SUCCESS/;
 use Try::Tiny;
 use Types::Standard -all;
 use XML::NamespaceSupport;
-use MarpaX::Languages::XML::Impl::State;
 
 # ABSTRACT: Marpa/Moops powered XML parser in Perl
 

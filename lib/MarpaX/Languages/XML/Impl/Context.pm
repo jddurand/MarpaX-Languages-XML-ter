@@ -22,8 +22,12 @@ class MarpaX::Languages::XML::Impl::Context {
   has io               => ( is => 'rw',   isa => IO,                required => 1, trigger => 1 );
   has grammar          => ( is => 'rw',   isa => Grammar,           required => 1, trigger => 1 );
   has dispatcher       => ( is => 'rw',   isa => Dispatcher,        required => 1 );
+  has endEventName     => ( is => 'rw',   isa => Str,               required => 1 );
+  has namespaceSupport => ( is => 'rwp',  isa => NamespaceSupport,  required => 1 );
+  has pauseEventName   => ( is => 'rw',   isa => Str,               default => '' );
+  has eolHandling      => ( is => 'rw',   isa => Bool,              default => true );
   has encoding         => ( is => 'rwp',  isa => Encoding,          init_arg => undef );
-  has recognizer       => ( is => 'rw',   isa => Recognizer);
+  has recognizer       => ( is => 'rwp',  isa => Recognizer,        init_arg => undef );
   has line             => ( is => 'rw',   isa => PositiveOrZeroInt, default => 1 );
   has column           => ( is => 'rw',   isa => PositiveOrZeroInt, default => 1 );
   has lastLexemes      => ( is => 'rw',   isa => LastLexemes,       default => sub { return [] },
@@ -33,8 +37,6 @@ class MarpaX::Languages::XML::Impl::Context {
                                         set_lastLexeme => 'set',
                                        }
                           );
-  has namespaceSupport => ( is => 'rwp',  isa => NamespaceSupport,  init_arg => undef );
-  has callbackSaidStop => ( is => 'rw',   isa => Bool,              default => false );
   has inDeclaration    => ( is => 'rw',   isa => Bool,              default => false );
 
   method _trigger_io(IO $io --> Undef) {
@@ -79,13 +81,18 @@ class MarpaX::Languages::XML::Impl::Context {
     $io->clear;
     $io->encoding($encoding->value);
     $io->block_size($old_block_size) if ($old_block_size != 1024);
+
     return;
   }
 
   method _trigger_grammar(Grammar $grammar --> Undef) {
-    my %namespacesupport_options = (xmlns => $grammar->xmlns ? 1 : 0);
-    $namespacesupport_options{xmlns_11} = ($grammar->xmlVersion eq '1.1' ? 1 : 0) if ($grammar->xmlns);
-    $self->_set_namespaceSupport(XML::NamespaceSupport->new(\%namespacesupport_options));
+    #
+    # And create a recognizer
+    #
+    my $recognizer = Marpa::R2::Scanless::R->new({grammar => $grammar->compiledGrammar});
+    $recognizer->read(\'  ');
+    $self->_set_recognizer($recognizer);
+
     return;
   }
 

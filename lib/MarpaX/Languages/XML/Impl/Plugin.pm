@@ -9,7 +9,6 @@ class MarpaX::Languages::XML::Impl::Plugin {
   use MarpaX::Languages::XML::Type::Dispatcher -all;
   use MarpaX::Languages::XML::Type::XmlVersion -all;
   use MarpaX::Languages::XML::Type::PluggableConstant -all;
-  use MarpaX::Languages::XML::Type::State -all;
   use MooX::HandlesVia;
   use MooX::Role::Logger;
   use MooX::Role::Pluggable::Constants;

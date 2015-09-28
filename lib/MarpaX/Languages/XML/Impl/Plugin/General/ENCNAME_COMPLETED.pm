@@ -7,7 +7,9 @@ use Moops;
 class MarpaX::Languages::XML::Impl::Plugin::General::ENCNAME_COMPLETED :assertions {
   use MarpaX::Languages::XML::Impl::Plugin;
   use MarpaX::Languages::XML::Type::PluggableConstant -all;
-  use MarpaX::Languages::XML::Type::State -all;
+  use MarpaX::Languages::XML::Type::Context -all;
+  use MarpaX::Languages::XML::Type::Dispatcher -all;
+  use MarpaX::Languages::XML::Type::Parser -all;
   use MooX::Role::Logger;
   use MooX::Role::Pluggable::Constants;
 
@@ -20,7 +22,7 @@ class MarpaX::Languages::XML::Impl::Plugin::General::ENCNAME_COMPLETED :assertio
                                           }
                           );
 
-  method N_ENCNAME_COMPLETE(Dispatcher $dispatcher, State $state --> PluggableConstant) {
+  method N_ENCNAME_COMPLETE(Dispatcher $dispatcher, Parser $parser, Context $context --> PluggableConstant) {
     return EAT_CLIENT   # No ';' for fewer hops
   }
 

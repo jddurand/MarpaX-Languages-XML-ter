@@ -10,6 +10,7 @@ class MarpaX::Languages::XML {
   use MarpaX::Languages::XML::Impl::PluginFactory;
   use MarpaX::Languages::XML::Type::Loglevel -all;
   use MarpaX::Languages::XML::Type::XmlVersion -all;
+  use MarpaX::Languages::XML::Type::StartSymbol -all;
   use MooX::Options protect_argv => 0;;
   use Types::Common::Numeric -all;
 
@@ -31,12 +32,13 @@ class MarpaX::Languages::XML {
                  builder => 1
                 );
   method _build_parser (--> InstanceOf['MarpaX::Languages::XML::Impl::Parser']) {
-    return MarpaX::Languages::XML::Impl::Parser->new(xmlVersion => $self->xml,
-                                                     xmlns      => $self->xmlns,
-                                                     wfc        => $self->wfc,
-                                                     vc         => $self->vc,
-                                                     blockSize  => $self->blocksize,
-                                                     unicode_newline => $self->unicode_newline);
+    return MarpaX::Languages::XML::Impl::Parser->new(xmlVersion      => $self->xml,
+                                                     xmlns           => $self->xmlns,
+                                                     wfc             => $self->wfc,
+                                                     vc              => $self->vc,
+                                                     blockSize       => $self->blocksize,
+                                                     unicode_newline => $self->unicode_newline,
+                                                     startSymbol     => $self->start);
   }
   # ---------------------------------------------------------------------------
   option wfc => (
@@ -86,6 +88,18 @@ class MarpaX::Languages::XML {
                       short => 'l',
                       doc => q{Set log level. Default value: "WARN". Supported values: "DEBUG", "INFO", "WARN", "ERROR", "FATAL", "TRACE".},
                      );
+  # ---------------------------------------------------------------------------
+  option start => (
+                   is => 'ro',
+                   isa => StartSymbol,
+                   default => 'document',
+                   #
+                   # Options
+                   #
+                   format => 's',
+                   short => 's',
+                   doc => q{Start symbol. Default is "document". Supported values: "document", "extParsedEnt" and "extSubset".}
+                );
   # ---------------------------------------------------------------------------
   option xml => (
                  is => 'ro',

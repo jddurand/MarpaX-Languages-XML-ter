@@ -2,7 +2,7 @@ use Moops;
 
 # PODCLASSNAME
 
-# ABSTRACT: State role
+# ABSTRACT: Grammar role
 
 role MarpaX::Languages::XML::Role::Grammar {
 

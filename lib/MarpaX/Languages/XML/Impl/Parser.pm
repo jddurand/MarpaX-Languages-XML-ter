@@ -22,6 +22,7 @@ class MarpaX::Languages::XML::Impl::Parser {
   use MarpaX::Languages::XML::Type::IO -all;
   use MarpaX::Languages::XML::Type::Parser -all;
   use MarpaX::Languages::XML::Type::Recognizer -all;
+  use MarpaX::Languages::XML::Type::StartSymbol -all;
   use MarpaX::Languages::XML::Type::XmlVersion -all;
   use MarpaX::Languages::XML::Marpa::R2::Hooks;
   use MooX::HandlesVia;
@@ -43,16 +44,45 @@ class MarpaX::Languages::XML::Impl::Parser {
   has blockSize       => ( is => 'ro',  isa => PositiveOrZeroInt, default => 1024 * 1024 );
   has rc              => ( is => 'rwp', isa => Int,               default => 0 );
   has unicode_newline => ( is => 'ro',  isa => Bool,              default => false, trigger => 1 );
+  has startSymbol     => ( is => 'ro',  isa => StartSymbol,       default => 'document' );
+
+  has _contexts       => ( is => 'rw',  isa => ArrayRef[Context], default => sub { [] }, 
+                           handles_via => 'Array', handles => {
+                                                               _count_contexts => 'count',
+                                                               _push_context => 'push',
+                                                               _pop_context => 'pop',
+                                                              }
+                         );
+  has _unicode_newline_regexp => ( is => 'rw',  isa => RegexpRef,                          default => sub { return qr/\R/; }  );
+  has _grammars               => ( is => 'rw',  isa => HashRef[Grammar],                   lazy => 1, builder => 1, handles_via => 'Hash', handles => { _get_grammar => 'get' } );
+  has _grammars_events        => ( is => 'rw',  isa => HashRef[HashRef[HashRef[Str]]],     lazy => 1, builder => 1, handles_via => 'Hash', handles => { _get_grammar_events => 'get' } );
+  has _namespaceSupport       => ( is => 'rw',  isa => NamespaceSupport,                   lazy => 1, builder => 1 );
+  has _pauseEventNames        => ( is => 'rw',  isa => HashRef[Str],                       default => sub
+                                   {
+                                     {
+                                       prolog  => 'start_root_element',
+                                       element => 'start_content',
+                                       content => 'start_element',
+                                     }
+                                   },
+                                   handles_via => 'Hash', handles => {
+                                                                      _get_pauseEventName => 'get'
+                                                                     }
+                                 );
+
   #
-  # This is for the stack free loop
+  # In the case of document, in reality with start with prolog
   #
-  has _contexts       => ( is => 'rw',  isa => ArrayRef[Context], handles_via => 'Array', handles => { _count_contexts => 'count', _elements_contexts => 'elements' } );
-  #
-  # The followings are just to avoid creating them more than once
-  #
-  has _unicode_newline_regexp => ( is => 'rw',  isa => RegexpRef, default => sub { return qr/\R/; }  );
-  has _grammars               => ( is => 'rw',  isa => HashRef[Grammar],  lazy => 1, builder => 1, handles_via => 'Hash', handles => { _get_grammar => 'get' } );
-  has _grammars_events        => ( is => 'rw',  isa => HashRef[HashRef[HashRef[Str]]], lazy => 1, builder => 1, handles_via => 'Hash', handles => { _get_grammars_events => 'get' } );
+  method _realStartSymbol(Dispatcher $dispatcher --> Str) {
+    my $startSymbol = $self->startSymbol;
+
+    if ($startSymbol eq 'document') {
+      $dispatcher->notify('start_document', $self);
+      return 'prolog';
+    } else {
+      return $startSymbol;
+    }
+  }
 
   method _trigger_unicode_newline(Bool $unicode_newline --> Undef) {
     $self->_unicode_newline_regexp($unicode_newline ? qr/\R/ : qr/\n/);
@@ -61,12 +91,6 @@ class MarpaX::Languages::XML::Impl::Parser {
   method _build__grammars_events( --> HashRef[HashRef[HashRef[Str]]]) {
     return
       {
-       document =>
-       {
-        completed => {
-                      document_COMPLETED      => 'document',
-                     }
-       },
        prolog =>
        {
         completed => {
@@ -75,14 +99,20 @@ class MarpaX::Languages::XML::Impl::Parser {
                       XMLDECL_END_COMPLETED   => 'XMLDECL_END',
                       VERSIONNUM_COMPLETED    => 'VERSIONNUM',
                       ELEMENT_START_COMPLETED => 'ELEMENT_START',
-                      prolog_COMPLETED        => 'prolog',
-                     }
+                      prolog_COMPLETED        => 'prolog'
+                     },
+        nulled => {
+                   start_root_element      => 'start_root_element'
+                  }
        },
        element =>
        {
         completed => {
                       element_COMPLETED       => 'element',
-                     }
+                     },
+        nulled => {
+                   start_content      => 'start_content'
+                  }
        }
       }
       ;
@@ -90,23 +120,31 @@ class MarpaX::Languages::XML::Impl::Parser {
 
   method _build__grammars( --> HashRef[Grammar]) {
     my %grammars = ();
-    foreach (qw/document prolog element/) {
+    foreach (qw/prolog element/) {
       $grammars{$_} = MarpaX::Languages::XML::Impl::Grammar->new(
                                                                  xmlVersion  => $self->xmlVersion,
                                                                  xmlns       => $self->xmlns,
                                                                  startSymbol => $_,
-                                                                 events      => $self->_get_grammars_events($_)
+                                                                 events      => $self->_get_grammar_events($_)
                                                                 );
     }
     return \%grammars;
   }
 
+  method _build__namespaceSupport( --> NamespaceSupport) {
+    my %namespacesupport_options = (xmlns => $self->xmlns ? 1 : 0);
+    $namespacesupport_options{xmlns_11} = ($self->xmlVersion eq '1.1' ? 1 : 0) if ($self->xmlns);
+
+    return XML::NamespaceSupport->new(\%namespacesupport_options);
+  }
+
   method parse(Str $source --> Int) {
     #
-    # Prepare variables that do not change for anw context
+    # Prepare variables that do not change for any context
     #
-    my $io         = MarpaX::Languages::XML::Impl::IO->new(source => $source);
-    my $dispatcher = MarpaX::Languages::XML::Impl::Dispatcher->new();
+    my $io               = MarpaX::Languages::XML::Impl::IO->new(source => $source);
+    my $dispatcher       = MarpaX::Languages::XML::Impl::Dispatcher->new();
+    my $namespaceSupport = $self->_namespaceSupport;
     #
     # Add events framework. They are:
     # - WFC constraints (configurable)
@@ -128,76 +166,31 @@ class MarpaX::Languages::XML::Impl::Parser {
     $io->buffer(\$MarpaX::Languages::XML::Impl::Parser::buffer);
     $io->block_size($self->blockSize);
     #
-    # Create first context
+    # Start with the appropriate symbol
     #
-    my $grammar = $self->_get_grammar('document');
-    my $context = MarpaX::Languages::XML::Impl::Context->new(io => $io, grammar => $grammar, dispatcher => $dispatcher);
+    my $realStartSymbol = $self->_realStartSymbol($dispatcher);
+    #
+    # Push first context
+    #
+    my $grammar = $self->_get_grammar($realStartSymbol);
+    my $context = MarpaX::Languages::XML::Impl::Context->new(io               => $io,
+                                                             grammar          => $grammar,
+                                                             dispatcher       => $dispatcher,
+                                                             namespaceSupport => $namespaceSupport,
+                                                             endEventName     => $realStartSymbol . '_COMPLETED',
+                                                             pauseEventNames  => $self->_get_pauseEventName($realStartSymbol));
+    $self->_push_context($context);
     #
     # Loop until there is no more context
     #
-    return $self->_parse_prolog($context)->_parse_element($context)->rc;
-    #
-    # WORK
-    #
-    $self->_contexts([ $context ]);
     do {
-      $self->_parse_generic();
+      $self->_parse_generic($self->_pop_context);
     } while ($self->_count_contexts);
     #
-    # Go
+    # Return code eventually under SAX handler control
     #
     return $self->rc;
   }
-
-  method _parse_document(Context $context --> Parser) {
-    #
-    # Get compiled grammar
-    #
-    my $compiledGrammar = $context->grammar->compiledGrammar;
-    #
-    # Get symbols IDs of interest from the compiled grammar
-    #
-    my  ($_ENCNAME_ID, $_XMLDECL_START_ID, $_XMLDECL_END_ID, $_VERSIONNUM_ID, $_ELEMENT_START_ID) = @{$compiledGrammar->symbol_by_name_hash}
-      {qw/_ENCNAME_ID   _XMLDECL_START_ID   _XMLDECL_END_ID   _VERSIONNUM_ID   _ELEMENT_START_ID/};
-    #
-    # Create a recognizer and initalize it
-    #
-    my $recognizer = Marpa::R2::Scanless::R->new({grammar => $compiledGrammar});
-    $recognizer->read(\'  ');
-    $context->recognizer($recognizer);
-    #
-    # and parse prolog
-    #
-    return $self->_parse_generic($context, 'prolog$', false);
-  }
-
-  method _parse_prolog(Context $context --> Parser) {
-    #
-    # Get compiled grammar
-    #
-    my $compiledGrammar = $context->grammar->compiledGrammar;
-    #
-    # Get symbols IDs of interest from the compiled grammar
-    #
-    my  ($_ENCNAME_ID, $_XMLDECL_START_ID, $_XMLDECL_END_ID, $_VERSIONNUM_ID, $_ELEMENT_START_ID) = @{$compiledGrammar->symbol_by_name_hash}
-      {qw/_ENCNAME_ID   _XMLDECL_START_ID   _XMLDECL_END_ID   _VERSIONNUM_ID   _ELEMENT_START_ID/};
-    #
-    # Create a recognizer and initalize it
-    #
-    my $recognizer = Marpa::R2::Scanless::R->new({grammar => $compiledGrammar});
-    $recognizer->read(\'  ');
-    $context->recognizer($recognizer);
-    #
-    # and parse prolog
-    #
-    return $self->_parse_generic($context, 'prolog$', false);
-  }
-
-  method _parse_element(Context $context --> Parser) {
-
-    return $self;
-  }
-
 
   method _reduce(Context $context --> Parser) {
     my $io     = $context->io;
@@ -216,40 +209,39 @@ class MarpaX::Languages::XML::Impl::Parser {
   method _read(Context $context, Bool $eolHandling --> Parser) {
 
     $context->io->read;
-    $context->dispatcher->process('EOL', $context) if ($eolHandling);
+    $context->dispatcher->process('EOL', $self, $context) if ($eolHandling);
 
     return $self;
   }
 
-  method _parse_generic(Context $context, Str $endEventName, Bool $eolHandling --> Parser) {
+  method _parse_generic(Context $context --> Parser) {
     #
     # Constant variables
     #
+    my $endEventName                   = $context->endEventName;
+    my $eolHandling                    = $context->eolHandling;
     my $grammar                        = $context->grammar;
     my $compiledGrammar                = $grammar->compiledGrammar;
+    my $startSymbol                    = $grammar->startSymbol;
     my $recognizer                     = $context->recognizer;
     my $io                             = $context->io;
     my $line                           = $context->line;
     my $column                         = $context->column;
     my $dispatcher                     = $context->dispatcher;
     my $unicode_newline_regexp         = $self->_unicode_newline_regexp;
+    my @lexeme_match_by_symbol_ids     = $grammar->elements_lexemesRegexpBySymbolId;
+    my @lexeme_exclusion_by_symbol_ids = $grammar->elements_lexemesExclusionsRegexpBySymbolId;
+    my @lexeme_minlength_by_symbol_ids = $grammar->elements_lexemesMinlengthBySymbolId;
+    my $_XMLNSCOLON_ID                 = $grammar->compiledGrammar->symbol_by_name_hash->{'_XMLNSCOLON'};
+    my $_XMLNS_ID                      = $grammar->compiledGrammar->symbol_by_name_hash->{'_XMLNS'};
     #
     # Non-constant variables
     #
     my $pos                            = pos($MarpaX::Languages::XML::Impl::Parser::buffer);
     my $length                         = length($MarpaX::Languages::XML::Impl::Parser::buffer);   # Faster than $io->length
     my $remaining                      = $length - $pos;
-    my @lexeme_match_by_symbol_ids     = $grammar->elements_lexemesRegexpBySymbolId;
-    my @lexeme_exclusion_by_symbol_ids = $grammar->elements_lexemesExclusionsRegexpBySymbolId;
-    my @lexeme_minlength_by_symbol_ids = $grammar->elements_lexemesMinlengthBySymbolId;
     my $previous_can_stop              = 0;
-    my $_XMLNSCOLON_ID                 = $grammar->compiledGrammar->symbol_by_name_hash->{'_XMLNSCOLON'};
-    my $_XMLNS_ID                      = $grammar->compiledGrammar->symbol_by_name_hash->{'_XMLNS'};
     my $eof                            = 0;
-    #
-    # Make sure that this variable is initialized to a false value
-    #
-    $context->callbackSaidStop(false);
     #
     # Infinite loop until user says to stop or error
     #
@@ -271,11 +263,7 @@ class MarpaX::Languages::XML::Impl::Parser {
         #
         # Dispatch events
         #
-        $dispatcher->notify($_, $context);
-        #
-        # Return if one of the callbacks said stop
-        #
-        return $self if ($context->callbackSaidStop);
+        $dispatcher->notify($_, $self, $context);
       }
       #
       # Then the expected lexemes
@@ -289,7 +277,12 @@ class MarpaX::Languages::XML::Impl::Parser {
             $length = length($MarpaX::Languages::XML::Impl::Parser::buffer);
             if ($length <= 0) {
               $self->_logger->debugf('EOF');
-              return $self;
+              if ($can_stop || $previous_can_stop) {
+                $self->_pop_context();
+                return $self;
+              } else {
+                ParseException->throw("EOF but $startSymbol grammar is not over");
+              }
             }
             pos($MarpaX::Languages::XML::Impl::Parser::buffer) = 0;
             $remaining = $length;
@@ -371,6 +364,7 @@ class MarpaX::Languages::XML::Impl::Parser {
         if (@terminals_expected_to_symbol_ids) {
           if (! $max_length) {
             if ($can_stop || $previous_can_stop) {
+              $self->_pop_context();
               return $self;
             } else {
               ParseException->throw('No predicted lexeme found');
@@ -444,6 +438,7 @@ class MarpaX::Languages::XML::Impl::Parser {
           # No prediction: this is ok only if grammar end_of_grammar flag is set
           #
           if ($can_stop || $previous_can_stop) {
+            $self->_pop_context();
             return $self;
           } else {
             ParseException->throw('No predicted lexeme found and end of grammar not reached');
@@ -459,6 +454,7 @@ class MarpaX::Languages::XML::Impl::Parser {
     #
     # Never reached -;
     #
+    ParseException->throw('Internal error - part of the code that should never have been reached');
     return $self;
   }
 
