@@ -42,6 +42,13 @@ class MarpaX::Languages::XML::Impl::Grammar {
   has xmlVersion              => ( is => 'ro', isa => XmlVersion,                           required => 1 );
   has xmlns                   => ( is => 'ro', isa => Bool,                                 required => 1 );
   has startSymbol             => ( is => 'ro', isa => Str,                                  required => 1 );
+  has events                  => ( is => 'ro', isa => HashRef[HashRef[Str]],                required => 1,
+                                   handles_via => 'Hash',
+                                   handles => {
+                                               keys_events => 'keys',
+                                               get_events => 'get'
+                                              }
+                                 );
 
   has _bnf                    => ( is => 'rw', isa => Str,                                  lazy => 1, builder => 1 );
   has lexemesRegexpBySymbolId => (
@@ -339,11 +346,13 @@ class MarpaX::Languages::XML::Impl::Grammar {
     );
 
   method _build_compiledGrammar {
+    my $bnf = $self->_bnf;
     $self->_logger->tracef('Compiling BNF for XML %s (namespace support: %s, start symbol: %s)', $self->xmlVersion, $self->xmlns ? 'yes' : 'no', $self->startSymbol);
-    return Marpa::R2::Scanless::G->new({source => \$self->_bnf});
+    return Marpa::R2::Scanless::G->new({source => \$bnf});
   }
 
   method _build__bnf {
+    $self->_logger->tracef('Producing BNF for XML %s (namespace support: %s, start symbol: %s)', $self->xmlVersion, $self->xmlns ? 'yes' : 'no', $self->startSymbol);
     my $dataSectionXmlName = $self->xmlVersion;
     $dataSectionXmlName =~ s/\.//;
     $dataSectionXmlName = 'xml' . $dataSectionXmlName;          # i.e. xml10 or xml11
@@ -379,6 +388,20 @@ class MarpaX::Languages::XML::Impl::Grammar {
       #
       $dataSectionXml .= $dataSectionXmlnsAdd;
       $dataSectionXml .= $dataSectionXmlnsReplaceOrAdd;
+    }
+    #
+    # Add events
+    #
+    foreach ($self->keys_events) {
+      my $type = $_;
+      my $hashRef = $self->get_events($_);
+      foreach (keys %{$hashRef}) {
+        my $eventName = $_;
+        my $rule = $hashRef->{$eventName};
+        my $string = "event '$eventName' = $type <$rule>";
+        $self->_logger->tracef('Adding %s', $string);
+        $dataSectionXml .= "$string\n";
+      }
     }
 
     return $dataSectionXml;

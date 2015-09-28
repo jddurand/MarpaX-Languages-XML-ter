@@ -525,17 +525,6 @@ NOTATIONDECL_END ::= _NOTATIONDECL_END
 XMLNSCOLON ::= _XMLNSCOLON
 XMLNS ::= _XMLNS
 COLON ::= _COLON
-
-#
-# Lexemes of interest events
-#
-event 'ENCNAME_COMPLETED'       =off = completed <ENCNAME>
-event 'XMLDECL_START_COMPLETED' =off = completed <XMLDECL_START>
-event 'XMLDECL_END_COMPLETED'   =off = completed <XMLDECL_END>
-event 'VERSIONNUM_COMPLETED'    =off = completed <VERSIONNUM>
-event 'ELEMENT_START_COMPLETED' =off = completed <ELEMENT_START>
-event 'prolog_COMPLETED'        =off = completed <prolog>
-
 #
 # Internal nullable rule to force the recognizer to stop immeidately,
 # before reading any lexeme
@@ -550,7 +539,7 @@ start_element  ::= ;
 end_element    ::= ;
 comment        ::= ;
 #
-# Events are added on-the-fly
+# Events can be added on-the-fly at grammar generation
 #
 __[ xmlns10:add ]__
 NSAttName	   ::= PrefixedAttName (prefixed_attname)

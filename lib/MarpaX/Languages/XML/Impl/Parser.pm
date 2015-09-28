@@ -49,15 +49,51 @@ class MarpaX::Languages::XML::Impl::Parser {
   #
   has _unicode_newline_regexp => ( is => 'rw',  isa => RegexpRef, default => sub { return qr/\R/; }  );
   has _grammars               => ( is => 'rw',  isa => HashRef[Grammar],  lazy => 1, builder => 1, handles_via => 'Hash', handles => { _get_grammar => 'get' } );
+  has _grammars_events        => ( is => 'rw',  isa => HashRef[HashRef[HashRef[Str]]], lazy => 1, builder => 1, handles_via => 'Hash', handles => { _get_grammars_events => 'get' } );
 
   method _trigger_unicode_newline(Bool $unicode_newline --> Undef) {
     $self->_unicode_newline_regexp($unicode_newline ? qr/\R/ : qr/\n/);
   }
 
+  method _build__grammars_events( --> HashRef[HashRef[HashRef[Str]]]) {
+    return
+      {
+       document =>
+       {
+        completed => {
+                      DOCUMENT_COMPLETED        => 'document',
+                     }
+       },
+       prolog =>
+       {
+        completed => {
+                      ENCNAME_COMPLETED       => 'ENCNAME',
+                      XMLDECL_START_COMPLETED => 'XMLDECL_START',
+                      XMLDECL_END_COMPLETED   => 'XMLDECL_END',
+                      VERSIONNUM_COMPLETED    => 'VERSIONNUM',
+                      ELEMENT_START_COMPLETED => 'ELEMENT_START',
+                      PROLOG_COMPLETED        => 'prolog',
+                     }
+       },
+       element =>
+       {
+        completed => {
+                      ELEMENT_COMPLETED        => 'element',
+                     }
+       }
+      }
+      ;
+  }
+
   method _build__grammars( --> HashRef[Grammar]) {
     my %grammars = ();
     foreach (qw/document prolog element/) {
-      $grammars{$_} = MarpaX::Languages::XML::Impl::Grammar->new(xmlVersion => $self->xmlVersion, xmlns => $self->xmlns, startSymbol => $_);
+      $grammars{$_} = MarpaX::Languages::XML::Impl::Grammar->new(
+                                                                 xmlVersion  => $self->xmlVersion,
+                                                                 xmlns       => $self->xmlns,
+                                                                 startSymbol => $_,
+                                                                 events      => $self->_get_grammars_events($_)
+                                                                );
     }
     return \%grammars;
   }

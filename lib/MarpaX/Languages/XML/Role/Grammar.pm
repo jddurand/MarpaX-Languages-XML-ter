@@ -36,6 +36,7 @@ role MarpaX::Languages::XML::Role::Grammar {
   requires 'xmlVersion';
   requires 'xmlns';
   requires 'startSymbol';
+  requires 'events';
 }
 
 1;
