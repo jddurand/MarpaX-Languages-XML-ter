@@ -61,7 +61,7 @@ class MarpaX::Languages::XML::Impl::Parser {
        document =>
        {
         completed => {
-                      DOCUMENT_COMPLETED        => 'document',
+                      document_COMPLETED      => 'document',
                      }
        },
        prolog =>
@@ -72,13 +72,13 @@ class MarpaX::Languages::XML::Impl::Parser {
                       XMLDECL_END_COMPLETED   => 'XMLDECL_END',
                       VERSIONNUM_COMPLETED    => 'VERSIONNUM',
                       ELEMENT_START_COMPLETED => 'ELEMENT_START',
-                      PROLOG_COMPLETED        => 'prolog',
+                      prolog_COMPLETED        => 'prolog',
                      }
        },
        element =>
        {
         completed => {
-                      ELEMENT_COMPLETED        => 'element',
+                      element_COMPLETED       => 'element',
                      }
        }
       }
@@ -153,13 +153,7 @@ class MarpaX::Languages::XML::Impl::Parser {
     $recognizer->read(\'  ');
     $context->recognizer($recognizer);
     #
-    # Enable these events
-    #
-    foreach (qw/ENCNAME_COMPLETED XMLDECL_START_COMPLETED XMLDECL_END_COMPLETED VERSIONNUM_COMPLETED ELEMENT_START_COMPLETED prolog_COMPLETED/) {
-      $recognizer->activate($_, 1);
-    }
-    #
-    # And parse prolog
+    # and parse prolog
     #
     return $self->_generic_parse($context, 'prolog$', false);
   }
