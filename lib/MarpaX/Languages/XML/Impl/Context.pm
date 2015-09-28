@@ -78,6 +78,7 @@ class MarpaX::Languages::XML::Impl::Context {
     $io->pos($encoding->byteStart);
     $io->clear;
     $io->encoding($encoding->value);
+    $io->block_size($old_block_size) if ($old_block_size != 1024);
     return;
   }
 

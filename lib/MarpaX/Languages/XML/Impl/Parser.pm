@@ -200,18 +200,15 @@ class MarpaX::Languages::XML::Impl::Parser {
 
 
   method _reduce(Context $context --> Parser) {
-    my $io = $context->io;
-    my $pos = pos($MarpaX::Languages::XML::Impl::Parser::buffer);
+    my $io     = $context->io;
+    my $pos    = pos($MarpaX::Languages::XML::Impl::Parser::buffer);
     my $length = length($MarpaX::Languages::XML::Impl::Parser::buffer);
+
     if ($pos >= $length) {
       $MarpaX::Languages::XML::Impl::Parser::buffer = '';
     } else {
       substr($MarpaX::Languages::XML::Impl::Parser::buffer, 0, $pos, '');
     }
-    #
-    # Re-position internal buffer
-    #
-    pos($MarpaX::Languages::XML::Impl::Parser::buffer) = 0;
 
     return $self;
   }
@@ -240,7 +237,7 @@ class MarpaX::Languages::XML::Impl::Parser {
     # Non-constant variables
     #
     my $pos                            = pos($MarpaX::Languages::XML::Impl::Parser::buffer);
-    my $length                         = length($MarpaX::Languages::XML::Impl::Parser::buffer);
+    my $length                         = length($MarpaX::Languages::XML::Impl::Parser::buffer);   # Faster than $io->length
     my $remaining                      = $length - $pos;
     my @lexeme_match_by_symbol_ids     = $grammar->elements_lexemesRegexpBySymbolId;
     my @lexeme_exclusion_by_symbol_ids = $grammar->elements_lexemesExclusionsRegexpBySymbolId;
