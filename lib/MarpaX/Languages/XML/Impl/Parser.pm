@@ -73,15 +73,10 @@ class MarpaX::Languages::XML::Impl::Parser {
   #
   # In the case of document, in reality with start with prolog
   #
-  method _realStartSymbol(Dispatcher $dispatcher --> Str) {
+  method _realStartSymbol( --> Str) {
     my $startSymbol = $self->startSymbol;
 
-    if ($startSymbol eq 'document') {
-      $dispatcher->notify('start_document', $self);
-      return 'prolog';
-    } else {
-      return $startSymbol;
-    }
+    return ($startSymbol eq 'document') ? 'prolog' : $startSymbol;
   }
 
   method _trigger_unicode_newline(Bool $unicode_newline --> Undef) {
@@ -168,7 +163,7 @@ class MarpaX::Languages::XML::Impl::Parser {
     #
     # Start with the appropriate symbol
     #
-    my $realStartSymbol = $self->_realStartSymbol($dispatcher);
+    my $realStartSymbol = $self->_realStartSymbol;
     #
     # Push first context
     #
@@ -180,6 +175,12 @@ class MarpaX::Languages::XML::Impl::Parser {
                                                              endEventName     => $realStartSymbol . '_COMPLETED',
                                                              pauseEventNames  => $self->_get_pauseEventName($realStartSymbol));
     $self->_push_context($context);
+    #
+    # In the case od document, we do NOT start at document, so we fake the event ourself
+    #
+    if ($self->startSymbol eq 'document') {
+      $dispatcher->notify('start_document', $self, $context);
+    }
     #
     # Loop until there is no more context
     #
