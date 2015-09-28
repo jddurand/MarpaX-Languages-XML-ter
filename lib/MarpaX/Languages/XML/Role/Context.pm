@@ -14,7 +14,6 @@ role MarpaX::Languages::XML::Role::Context {
   requires 'grammar';
   requires 'dispatcher';
   requires 'endEventName';
-  requires 'pauseEventName';
   requires 'namespaceSupport';
   requires 'eolHandling';
   requires 'encoding';
@@ -24,6 +23,8 @@ role MarpaX::Languages::XML::Role::Context {
   requires 'lastLexemes';
   requires 'get_lastLexeme';
   requires 'set_lastLexeme';
+  requires 'demolish';
+
 }
 
 1;

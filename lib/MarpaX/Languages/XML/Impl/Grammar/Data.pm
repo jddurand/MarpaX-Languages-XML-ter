@@ -25,7 +25,7 @@ lexeme default = action => [start,length,value,name] forgiving => 1
 start                         ::= $START
 MiscAny                       ::= Misc*
 # Note: end_document is when either we abandoned parsing or reached the end of input of the 'document' grammar
-document                      ::= prolog (start_root_element) element (end_root_element) MiscAny
+document                      ::= prolog (start_root_element) element MiscAny
 Name                          ::= NAME
 Names                         ::= Name+ separator => SPACE proper => 1
 Nmtoken                       ::= NMTOKENMANY
@@ -535,7 +535,6 @@ internal_event_for_immediate_pause ::= ;
 # Nullable rules
 #
 start_root_element  ::= ;
-end_root_element    ::= ;
 start_element       ::= ;
 end_element         ::= ;
 #

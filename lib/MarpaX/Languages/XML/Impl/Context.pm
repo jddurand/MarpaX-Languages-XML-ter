@@ -24,9 +24,8 @@ class MarpaX::Languages::XML::Impl::Context {
   has dispatcher       => ( is => 'rw',   isa => Dispatcher,        required => 1 );
   has endEventName     => ( is => 'rw',   isa => Str,               required => 1 );
   has namespaceSupport => ( is => 'rwp',  isa => NamespaceSupport,  required => 1 );
-  has pauseEventName   => ( is => 'rw',   isa => Str,               default => '' );
   has eolHandling      => ( is => 'rw',   isa => Bool,              default => true );
-  has encoding         => ( is => 'rwp',  isa => Encoding,          init_arg => undef );
+  has encoding         => ( is => 'rwp',  isa => Encoding,          predicate => 1 );
   has recognizer       => ( is => 'rwp',  isa => Recognizer,        init_arg => undef );
   has line             => ( is => 'rw',   isa => PositiveOrZeroInt, default => 1 );
   has column           => ( is => 'rw',   isa => PositiveOrZeroInt, default => 1 );
@@ -37,9 +36,15 @@ class MarpaX::Languages::XML::Impl::Context {
                                         set_lastLexeme => 'set',
                                        }
                           );
-  has inDeclaration    => ( is => 'rw',   isa => Bool,              default => false );
+  has demolish         => ( is => 'ro',   isa => CodeRef,           default => sub { sub { } } );
+
+  method DEMOLISH {
+    my $demolish = $self->demolish;
+    $self->$demolish;
+  }
 
   method _trigger_io(IO $io --> Undef) {
+    return if ($self->has_encoding);
     #
     # Set binary mode
     #
@@ -96,7 +101,7 @@ class MarpaX::Languages::XML::Impl::Context {
     return;
   }
 
-  with qw/MarpaX::Languages::XML::Role::Context/;
+  with 'MarpaX::Languages::XML::Role::Context';
 }
 
 1;

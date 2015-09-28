@@ -56,20 +56,8 @@ class MarpaX::Languages::XML::Impl::Parser {
   has _unicode_newline_regexp => ( is => 'rw',  isa => RegexpRef,                          default => sub { return qr/\R/; }  );
   has _grammars               => ( is => 'rw',  isa => HashRef[Grammar],                   lazy => 1, builder => 1, handles_via => 'Hash', handles => { _get_grammar => 'get' } );
   has _grammars_events        => ( is => 'rw',  isa => HashRef[HashRef[HashRef[Str]]],     lazy => 1, builder => 1, handles_via => 'Hash', handles => { _get_grammar_events => 'get' } );
+  has _grammars_demolish      => ( is => 'rw',  isa => HashRef[CodeRef],                   lazy => 1, builder => 1, handles_via => 'Hash', handles => { _get_grammar_demolish => 'get' } );
   has _namespaceSupport       => ( is => 'rw',  isa => NamespaceSupport,                   lazy => 1, builder => 1 );
-  has _pauseEventNames        => ( is => 'rw',  isa => HashRef[Str],                       default => sub
-                                   {
-                                     {
-                                       prolog  => 'start_root_element',
-                                       element => 'start_content',
-                                       content => 'start_element',
-                                     }
-                                   },
-                                   handles_via => 'Hash', handles => {
-                                                                      _get_pauseEventName => 'get'
-                                                                     }
-                                 );
-
   #
   # In the case of document, in reality with start with prolog
   #
@@ -106,8 +94,36 @@ class MarpaX::Languages::XML::Impl::Parser {
                       element_COMPLETED       => 'element',
                      },
         nulled => {
-                   start_content      => 'start_content'
+                   start_element      => 'start_element',
+                   end_element        => 'end_element'
                   }
+       }
+      }
+      ;
+  }
+
+  method _build__grammars_demolish( --> HashRef[CodeRef]) {
+    return
+      {
+       #
+       # After prolog we want to continue to element
+       prolog =>
+       sub {
+         my ($selfcontext) = @_;
+         #
+         # Here $self is the parser, and we are executed in the $selfcontext context
+         #
+         my $grammar = $self->_get_grammar('element');
+         my $context = MarpaX::Languages::XML::Impl::Context->new(io               => $selfcontext->io,
+                                                                  grammar          => $grammar,
+                                                                  encoding         => $selfcontext->encoding,
+                                                                  dispatcher       => $selfcontext->dispatcher,
+                                                                  namespaceSupport => $selfcontext->namespaceSupport,
+                                                                  endEventName     => 'element_COMPLETED');
+         $self->_push_context($context);
+       },
+       element =>
+       sub {
        }
       }
       ;
@@ -131,6 +147,16 @@ class MarpaX::Languages::XML::Impl::Parser {
     $namespacesupport_options{xmlns_11} = ($self->xmlVersion eq '1.1' ? 1 : 0) if ($self->xmlns);
 
     return XML::NamespaceSupport->new(\%namespacesupport_options);
+  }
+
+  method _safe_string(Str $string --> Str) {
+    #
+    # Replace any character that would not be a known ASCII printable one with its hexadecimal value a-la-XML
+    #
+    # http://stackoverflow.com/questions/9730054/how-can-i-dump-a-string-in-perl-to-see-if-there-are-any-character-differences
+    #
+    $string =~ s/([^\x20-\x7E])/sprintf("&#x%x;", ord($1))/ge;
+    return $string;
   }
 
   method parse(Str $source --> Int) {
@@ -167,13 +193,15 @@ class MarpaX::Languages::XML::Impl::Parser {
     #
     # Push first context
     #
-    my $grammar = $self->_get_grammar($realStartSymbol);
-    my $context = MarpaX::Languages::XML::Impl::Context->new(io               => $io,
+    my $grammar = $self->_get_grammar($realStartSymbol); # prolog, extParsedEnt, extSubset, element
+    my $context = MarpaX::Languages::XML::Impl::Context->new(
+                                                             io               => $io,
                                                              grammar          => $grammar,
                                                              dispatcher       => $dispatcher,
                                                              namespaceSupport => $namespaceSupport,
                                                              endEventName     => $realStartSymbol . '_COMPLETED',
-                                                             pauseEventNames  => $self->_get_pauseEventName($realStartSymbol));
+                                                             demolish         => $self->_get_grammar_demolish($realStartSymbol)
+                                                            );
     $self->_push_context($context);
     #
     # In the case od document, we do NOT start at document, so we fake the event ourself
@@ -182,10 +210,15 @@ class MarpaX::Languages::XML::Impl::Parser {
       $dispatcher->notify('start_document', $self, $context);
     }
     #
+    # Make sure that context will be demolished
+    #
+    ($io, $grammar, $dispatcher, $namespaceSupport, $context) = ();
+    #
     # Loop until there is no more context
     #
     do {
       $self->_parse_generic($self->_pop_context);
+      $self->_logger->tracef('Number of remaining contexts: %d', $self->_count_contexts);
     } while ($self->_count_contexts);
     #
     # Return code eventually under SAX handler control
@@ -248,9 +281,9 @@ class MarpaX::Languages::XML::Impl::Parser {
     #
     while (1) {
       my @event_names                      = map { $_->[0] } @{$recognizer->events()};
-      $self->_logger->debugf('Events  : %s', $recognizer->events);
+      $self->_logger->tracef('Events  : %s', $recognizer->events);
       my @terminals_expected_to_symbol_ids = $recognizer->terminals_expected_to_symbol_ids();
-      $self->_logger->debugf('Expected: %s', $recognizer->terminals_expected);
+      $self->_logger->tracef('Expected: %s', $recognizer->terminals_expected);
       $self->_logger->tracef('     Ids: %s', \@terminals_expected_to_symbol_ids);
       #
       # First the events
@@ -408,7 +441,7 @@ class MarpaX::Languages::XML::Impl::Parser {
             $next_line   = $line;
             $next_column = $column + $max_length;
           }
-          $self->_logger->debugf('Match: %s', {map { $compiledGrammar->symbol_name($_) => $length{$_} } keys %length});
+          $self->_logger->debugf('Match: %s: %s', {map { $compiledGrammar->symbol_name($_) => $length{$_} } keys %length}, $self->_safe_string($data));
           foreach (keys %length) {
             #
             # Remember last data for this lexeme
