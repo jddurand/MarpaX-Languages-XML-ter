@@ -24,6 +24,7 @@ foreach (@ARGV) {
     $xml->parser->parse($_);
 }
 
+sleep 1;
 exit(EXIT_SUCCESS);
 
 ##################################################"

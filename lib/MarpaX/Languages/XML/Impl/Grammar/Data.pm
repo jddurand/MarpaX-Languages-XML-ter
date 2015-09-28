@@ -153,8 +153,8 @@ contentUnit                   ::= element CharData
                                 | Comment CharData
                                 | Comment
 contentUnitAny                ::= contentUnit*
-content                       ::= CharData contentUnitAny
-content                       ::=          contentUnitAny
+content                       ::= (internal_event_for_immediate_pause) CharData contentUnitAny
+content                       ::= (internal_event_for_immediate_pause)          contentUnitAny
 EmptyElemTagUnit              ::= S Attribute
 EmptyElemTagUnitAny           ::= EmptyElemTagUnit*
 EmptyElemTag                  ::= ELEMENT_START Name EmptyElemTagUnitAny S EMPTYELEM_END   # [WFC: Unique Att Spec]

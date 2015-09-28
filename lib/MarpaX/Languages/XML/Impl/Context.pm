@@ -36,11 +36,17 @@ class MarpaX::Languages::XML::Impl::Context {
                                         set_lastLexeme => 'set',
                                        }
                           );
+  has build            => ( is => 'ro',   isa => CodeRef,           default => sub { sub { } } );
   has demolish         => ( is => 'ro',   isa => CodeRef,           default => sub { sub { } } );
+
+  method BUILD {
+    my $build = $self->build;
+    $self->$build(@_);
+  }
 
   method DEMOLISH {
     my $demolish = $self->demolish;
-    $self->$demolish;
+    $self->$demolish(@_);
   }
 
   method _trigger_io(IO $io --> Undef) {
