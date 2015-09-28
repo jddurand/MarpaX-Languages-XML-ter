@@ -23,7 +23,8 @@ lexeme default = action => [start,length,value,name] forgiving => 1
 
 # start                         ::= document | extParsedEnt | extSubset
 start                         ::= $START
-MiscAny                       ::= Misc*
+_MiscAny                      ::= Misc*
+MiscAny                       ::= (internal_event_for_immediate_pause) _MiscAny
 # Note: end_document is when either we abandoned parsing or reached the end of input of the 'document' grammar
 document                      ::= prolog element MiscAny
 Name                          ::= NAME
