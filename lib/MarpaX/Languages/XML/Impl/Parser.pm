@@ -100,22 +100,12 @@ class MarpaX::Languages::XML::Impl::Parser {
 
   method parse(Str $source --> Int) {
     #
-    # Prepare variables to build the context
+    # Prepare variables that do not change for anw context
     #
     my $io         = MarpaX::Languages::XML::Impl::IO->new(source => $source);
     my $dispatcher = MarpaX::Languages::XML::Impl::Dispatcher->new();
     #
-    # We want to handle buffer direcly with no COW: the buffer scalar is localized
-    #
-    local $MarpaX::Languages::XML::Impl::Parser::buffer = '';
-    $io->buffer(\$MarpaX::Languages::XML::Impl::Parser::buffer);
-    #
-    # Create context
-    #
-    my $grammar = $self->_get_grammar('document');
-    my $context = MarpaX::Languages::XML::Impl::Context->new(io => $io, grammar => $grammar, dispatcher => $dispatcher);
-    #
-    # And events framework. They are:
+    # Add events framework. They are:
     # - WFC constraints (configurable)
     # - VC constraints (configurable)
     # - other events (not configurable)
@@ -128,10 +118,20 @@ class MarpaX::Languages::XML::Impl::Parser {
       ->registerPlugins($self->xmlVersion, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::General', ':all')
       ;
     #
+    # We want to handle buffer direcly with no COW: the buffer scalar is localized.
+    # And have the block size as per the argument
+    #
+    local $MarpaX::Languages::XML::Impl::Parser::buffer = '';
+    $io->buffer(\$MarpaX::Languages::XML::Impl::Parser::buffer);
+    $io->block_size($self->blockSize);
+    #
+    # Create context
+    #
+    my $grammar = $self->_get_grammar('document');
+    my $context = MarpaX::Languages::XML::Impl::Context->new(io => $io, grammar => $grammar, dispatcher => $dispatcher);
+    #
     # Go
     #
-    $io->block_size($self->blockSize);
-
     return $self->_parse_prolog($context)->_parse_element($context)->rc;
   }
 
