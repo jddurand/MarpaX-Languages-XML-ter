@@ -5,6 +5,7 @@ use Moops;
 # ABSTRACT Marpa powered XML parser
 
 class MarpaX::Languages::XML {
+  use Class::Load qw/load_class/;
   use MarpaX::Languages::XML::Impl::Parser;
   use MarpaX::Languages::XML::Impl::PluginFactory;
   use MarpaX::Languages::XML::Type::Loglevel -all;
@@ -40,7 +41,19 @@ class MarpaX::Languages::XML {
                  short => 'w',
                  doc =>
                  "Well-Formed constraints. Repeatable option. Default is \":all\". Supported values are:\n"
-                 . join(",\n",  map {"\t\t$_"} MarpaX::Languages::XML::Impl::PluginFactory->listAllPlugins('MarpaX::Languages::XML::Impl::WFC'), ':all', ':none') . "."
+                 . join(",\n",  map
+                        {
+                          my $pkg = "MarpaX::Languages::XML::Impl::Plugin::WFC::$_";
+                          my $doc = '';
+                          try {
+                            load_class($pkg);
+                            print STDERR "... $pkg->new->doc\n";
+                            $doc = $pkg->new->doc;
+                          } catch {
+                            print STDERR "$_";
+                          };
+                          "\t\t$_ ($doc)";
+                        } MarpaX::Languages::XML::Impl::PluginFactory->listAllPlugins('MarpaX::Languages::XML::Impl::Plugin::WFC'), ':all', ':none') . "."
                  . "\n\tList is taken in order: \":all\" to push all plugins, \":none\" to remove everything, \"no-X\" to remove plugin \"X\"."
                 );
   # ---------------------------------------------------------------------------
@@ -56,7 +69,7 @@ class MarpaX::Languages::XML {
                 short => 'v',
                 doc =>
                  "Validation constraints. Repeatable option. Default is \":all\". Supported values are:\n"
-                 . join(",\n",  map {"\t\t$_"} MarpaX::Languages::XML::Impl::PluginFactory->listAllPlugins('MarpaX::Languages::XML::Impl::VC'), ':all', ':none') . "."
+                 . join(",\n",  map {"\t\t$_"} MarpaX::Languages::XML::Impl::PluginFactory->listAllPlugins('MarpaX::Languages::XML::Impl::Plugin::VC'), ':all', ':none') . "."
                  . "\n\tList is taken in order: \":all\" to push all plugins, \":none\" to remove everything, \"no-X\" to remove plugin \"X\"."
                 );
   # ---------------------------------------------------------------------------

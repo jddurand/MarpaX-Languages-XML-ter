@@ -14,7 +14,9 @@ class MarpaX::Languages::XML::Impl::Plugin {
   use MooX::Role::Logger;
   use MooX::Role::Pluggable::Constants;
 
-  has xmlVersion => (is => 'ro', isa => XmlVersion, required => 1);
+  has doc => (is => 'ro', isa => Str, default => '');
+
+  has xmlVersion => (is => 'ro', isa => XmlVersion, default => '1.0');
 
   has subscriptions => (is => 'rwp', isa => HashRef[ArrayRef[Str]],
                         default => sub { return {} },

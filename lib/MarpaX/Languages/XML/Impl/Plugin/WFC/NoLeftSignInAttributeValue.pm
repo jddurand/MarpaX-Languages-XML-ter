@@ -13,6 +13,8 @@ class MarpaX::Languages::XML::Impl::Plugin::WFC::NoLeftSignInAttributeValue :ass
 
   extends qw/MarpaX::Languages::XML::Impl::Plugin/;
 
+  has '+doc' => (is => 'ro', default => 'Well-formedness constraint: No < in Attribute Values');
+
   has '+subscriptions' => (default => sub { return
                                               {
                                                NOTIFY => [ 'AttValue_COMPLETED' ]

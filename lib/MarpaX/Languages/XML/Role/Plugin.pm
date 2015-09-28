@@ -10,6 +10,7 @@ role MarpaX::Languages::XML::Role::Plugin {
 
   # AUTHORITY
 
+  requires 'doc';
   requires 'xmlVersion';
   requires 'subscriptions';
   requires 'plugin_register';
