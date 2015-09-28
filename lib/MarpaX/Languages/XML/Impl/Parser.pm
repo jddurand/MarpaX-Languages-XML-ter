@@ -97,6 +97,12 @@ class MarpaX::Languages::XML::Impl::Parser {
                    start_element      => 'start_element',
                    end_element        => 'end_element'
                   }
+       },
+       MiscAny =>
+       {
+        completed => {
+                      MiscAny_COMPLETED       => 'MiscAny',
+                     }
        }
       }
       ;
@@ -107,23 +113,58 @@ class MarpaX::Languages::XML::Impl::Parser {
       {
        #
        # After prolog we want to continue to element
+       #
        prolog =>
        sub {
          my ($selfcontext) = @_;
          #
          # Here $self is the parser, and we are executed in the $selfcontext context
          #
+         $self->_logger->tracef('prolog destroy, number of remaining context is %d', $self->_count_contexts);
          my $grammar = $self->_get_grammar('element');
-         my $context = MarpaX::Languages::XML::Impl::Context->new(io               => $selfcontext->io,
+         my $context = MarpaX::Languages::XML::Impl::Context->new(
+                                                                  io               => $selfcontext->io,
                                                                   grammar          => $grammar,
                                                                   encoding         => $selfcontext->encoding,
                                                                   dispatcher       => $selfcontext->dispatcher,
                                                                   namespaceSupport => $selfcontext->namespaceSupport,
-                                                                  endEventName     => 'element_COMPLETED');
+                                                                  endEventName     => 'element_COMPLETED',
+                                                                  demolish         => $self->_get_grammar_demolish('element')
+                                                                 );
          $self->_push_context($context);
        },
+       #
+       # After the root element we want to continue to MiscAny
+       #
        element =>
        sub {
+         my ($selfcontext) = @_;
+
+         $self->_logger->tracef('element destroy, number of remaining context is %d', $self->_count_contexts);
+         return if ($self->_count_contexts > 0);
+         #
+         # Here $self is the parser, and we are executed in the $selfcontext context
+         #
+         my $grammar = $self->_get_grammar('MiscAny');
+         my $context = MarpaX::Languages::XML::Impl::Context->new(
+                                                                  io               => $selfcontext->io,
+                                                                  grammar          => $grammar,
+                                                                  encoding         => $selfcontext->encoding,
+                                                                  dispatcher       => $selfcontext->dispatcher,
+                                                                  namespaceSupport => $selfcontext->namespaceSupport,
+                                                                  endEventName     => 'MiscAny_COMPLETED',
+                                                                  demolish         => $self->_get_grammar_demolish('MiscAny')
+                                                                 );
+         $self->_push_context($context);
+       },
+       #
+       # After MiscAny, nothing
+       #
+       MiscAny =>
+       sub {
+         my ($selfcontext) = @_;
+         $self->_logger->tracef('MiscAny destroy, number of remaining context is %d', $self->_count_contexts);
+         return;
        }
       }
       ;
@@ -131,7 +172,7 @@ class MarpaX::Languages::XML::Impl::Parser {
 
   method _build__grammars( --> HashRef[Grammar]) {
     my %grammars = ();
-    foreach (qw/prolog element/) {
+    foreach (qw/prolog element MiscAny/) {
       $grammars{$_} = MarpaX::Languages::XML::Impl::Grammar->new(
                                                                  xmlVersion  => $self->xmlVersion,
                                                                  xmlns       => $self->xmlns,
