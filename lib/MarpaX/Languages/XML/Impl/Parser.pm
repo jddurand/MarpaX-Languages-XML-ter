@@ -43,7 +43,10 @@ class MarpaX::Languages::XML::Impl::Parser {
   has blockSize       => ( is => 'ro',  isa => PositiveOrZeroInt, default => 1024 * 1024 );
   has rc              => ( is => 'rwp', isa => Int,               default => 0 );
   has unicode_newline => ( is => 'ro',  isa => Bool,              default => false, trigger => 1 );
-
+  #
+  # This is for the stack free loop
+  #
+  has _contexts       => ( is => 'rw',  isa => ArrayRef[Context], handles_via => 'Array', handles => { _count_contexts => 'count', _elements_contexts => 'elements' } );
   #
   # The followings are just to avoid creating them more than once
   #
@@ -125,14 +128,25 @@ class MarpaX::Languages::XML::Impl::Parser {
     $io->buffer(\$MarpaX::Languages::XML::Impl::Parser::buffer);
     $io->block_size($self->blockSize);
     #
-    # Create context
+    # Create first context
     #
     my $grammar = $self->_get_grammar('document');
     my $context = MarpaX::Languages::XML::Impl::Context->new(io => $io, grammar => $grammar, dispatcher => $dispatcher);
     #
-    # Go
+    # Loop until there is no more context
     #
     return $self->_parse_prolog($context)->_parse_element($context)->rc;
+    #
+    # WORK
+    #
+    $self->_contexts([ $context ]);
+    do {
+      $self->_parse_generic();
+    } while ($self->_count_contexts);
+    #
+    # Go
+    #
+    return $self->rc;
   }
 
   method _parse_document(Context $context --> Parser) {
@@ -154,7 +168,7 @@ class MarpaX::Languages::XML::Impl::Parser {
     #
     # and parse prolog
     #
-    return $self->_generic_parse($context, 'prolog$', false);
+    return $self->_parse_generic($context, 'prolog$', false);
   }
 
   method _parse_prolog(Context $context --> Parser) {
@@ -176,7 +190,7 @@ class MarpaX::Languages::XML::Impl::Parser {
     #
     # and parse prolog
     #
-    return $self->_generic_parse($context, 'prolog$', false);
+    return $self->_parse_generic($context, 'prolog$', false);
   }
 
   method _parse_element(Context $context --> Parser) {
@@ -210,7 +224,7 @@ class MarpaX::Languages::XML::Impl::Parser {
     return $self;
   }
 
-  method _generic_parse(Context $context, Str $endEventName, Bool $eolHandling --> Parser) {
+  method _parse_generic(Context $context, Str $endEventName, Bool $eolHandling --> Parser) {
     #
     # Constant variables
     #
