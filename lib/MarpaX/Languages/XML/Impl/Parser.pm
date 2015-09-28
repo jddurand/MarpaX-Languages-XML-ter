@@ -53,25 +53,62 @@ class MarpaX::Languages::XML::Impl::Parser {
                                                                _pop_context    => 'pop'
                                                               }
                          );
-  method _push_context {
-    my $count = $self->_count_contexts;
-    my $rc = push(@{$self->{_contexts}}, @_);
-    $self->_logger->debugf('Pushing %s context (%d ->%d)', $_[0]->grammar->startSymbol, $count, $count + 1);
-    return $rc;
+  has _eof            => ( is => 'rw',  isa => Bool,              default => false, trigger => 1 );
+
+  method _trigger__eof(Bool $eof) {
+    $self->_logger->debugf('EOF');
   }
 
-  method _pop_context {
+  around _push_context {
     my $count = $self->_count_contexts;
-    my $rc = pop(@{$self->{_contexts}});
-    $self->_logger->debugf('Popping %s context (%d ->%d)', $rc->grammar->startSymbol, $count, $count - 1);
+    my $rc = $self->${^NEXT}(@_);
+    $self->_logger->debugf('Pushed %s context (%d ->%d), canStop=%s', $_[0]->grammar->startSymbol, $count, $count + 1, $_[0]->canStop);
     return $rc;
-  }
+  };
+
+  around _pop_context {
+    my $count = $self->_count_contexts;
+    my $rc = $self->${^NEXT}(@_);
+    my $startSymbol = $rc->grammar->startSymbol;
+    if ($startSymbol eq 'prolog') {
+      #
+      # After prolog we want to continue to element
+      #
+      my $grammar = $self->_get_grammar('element');
+      my $context = MarpaX::Languages::XML::Impl::Context->new(
+                                                               io               => $rc->io,
+                                                               grammar          => $grammar,
+                                                               encoding         => $rc->encoding,
+                                                               dispatcher       => $rc->dispatcher,
+                                                               namespaceSupport => $rc->namespaceSupport,
+                                                               endEventName     => 'element_COMPLETED'
+                                                              );
+      $self->_push_context($context);
+    }
+    elsif ($startSymbol eq 'element') {
+      if ($self->_count_contexts <= 0) {
+        #
+        # After the root element we want to continue to MiscAny
+        #
+        my $grammar = $self->_get_grammar('MiscAny');
+        my $context = MarpaX::Languages::XML::Impl::Context->new(
+                                                                 io               => $rc->io,
+                                                                 grammar          => $grammar,
+                                                                 encoding         => $rc->encoding,
+                                                                 dispatcher       => $rc->dispatcher,
+                                                                 namespaceSupport => $rc->namespaceSupport,
+                                                                 endEventName     => 'MiscAny_COMPLETED'
+                                                                );
+        $self->_push_context($context);
+      }
+    }
+    $self->_logger->debugf('Popped %s context (%d ->%d), canStop=%s', $rc->grammar->startSymbol, $count, $count - 1, $rc->canStop);
+    return $rc;
+  };
 
   has _unicode_newline_regexp => ( is => 'rw',  isa => RegexpRef,                          default => sub { return qr/\R/; }  );
   has _grammars               => ( is => 'rw',  isa => HashRef[Grammar],                   lazy => 1, builder => 1, handles_via => 'Hash', handles => { _get_grammar => 'get' } );
   has _grammars_events        => ( is => 'rw',  isa => HashRef[HashRef[HashRef[Str]]],     lazy => 1, builder => 1, handles_via => 'Hash', handles => { _get_grammar_events => 'get' } );
-  has _grammars_demolish      => ( is => 'rw',  isa => HashRef[CodeRef],                   lazy => 1, builder => 1, handles_via => 'Hash', handles => { _get_grammar_demolish => 'get' } );
-  has _grammars_build         => ( is => 'rw',  isa => HashRef[CodeRef],                   lazy => 1, builder => 1, handles_via => 'Hash', handles => { _get_grammar_build => 'get' } );
   has _namespaceSupport       => ( is => 'rw',  isa => NamespaceSupport,                   lazy => 1, builder => 1 );
   #
   # In the case of document, in reality with start with prolog
@@ -118,87 +155,6 @@ class MarpaX::Languages::XML::Impl::Parser {
                                       content_COMPLETED       => 'content',
                                      }
                        }
-           };
-  }
-
-  method _build__grammars_demolish( --> HashRef[CodeRef]) {
-    return {
-            #
-            # After prolog we want to continue to element
-            #
-            prolog => sub {
-              my ($selfcontext, $in_global_destruction) = @_;
-              #
-              # Here $self is the parser, and we are executed in the $selfcontext context
-              #
-              $self->_logger->debugf('prolog destruction (global destruction ? %s), number of remaining context is %d', $in_global_destruction ? 'yes' : 'no', $self->_count_contexts);
-              my $grammar = $self->_get_grammar('element');
-              my $context = MarpaX::Languages::XML::Impl::Context->new(
-                                                                       io               => $selfcontext->io,
-                                                                       grammar          => $grammar,
-                                                                       encoding         => $selfcontext->encoding,
-                                                                       dispatcher       => $selfcontext->dispatcher,
-                                                                       namespaceSupport => $selfcontext->namespaceSupport,
-                                                                       endEventName     => 'element_COMPLETED',
-                                                                       demolish         => $self->_get_grammar_demolish('element'),
-                                                                       build            => $self->_get_grammar_build('element')
-                                                                      );
-              $self->_push_context($context);
-              return;
-            },
-            #
-            # After the root element we want to continue to MiscAny
-            #
-            element => sub {
-              my ($selfcontext, $in_global_destruction) = @_;
-
-              $self->_logger->debugf('element destruction (global destruction ? %s), number of remaining context is %d', $in_global_destruction ? 'yes' : 'no', $self->_count_contexts);
-              return if ($self->_count_contexts > 0);
-              #
-              # Here $self is the parser, and we are executed in the $selfcontext context
-              #
-              my $grammar = $self->_get_grammar('MiscAny');
-              my $context = MarpaX::Languages::XML::Impl::Context->new(
-                                                                       io               => $selfcontext->io,
-                                                                       grammar          => $grammar,
-                                                                       encoding         => $selfcontext->encoding,
-                                                                       dispatcher       => $selfcontext->dispatcher,
-                                                                       namespaceSupport => $selfcontext->namespaceSupport,
-                                                                       endEventName     => 'MiscAny_COMPLETED',
-                                                                       demolish         => $self->_get_grammar_demolish('MiscAny'),
-                                                                       build            => $self->_get_grammar_build('MiscAny')
-                                                                      );
-              $self->_push_context($context);
-              return;
-            },
-            #
-            # After MiscAny, nothing
-            #
-            MiscAny =>  sub {
-              my ($selfcontext, $in_global_destruction) = @_;
-
-              $self->_logger->debugf('MiscAny destruction (global destruction ? %s), number of remaining context is %d', $in_global_destruction ? 'yes' : 'no', $self->_count_contexts);
-              return;
-            },
-            #
-            # After content, nothing: the contexts will automatically popup
-            # and this is ok because content is a nullable rule
-            #
-            content =>  sub {
-              my ($selfcontext, $in_global_destruction) = @_;
-
-              $self->_logger->debugf('content destruction (global destruction ? %s), number of remaining context is %d', $in_global_destruction ? 'yes' : 'no', $self->_count_contexts);
-              return;
-            }
-           };
-  }
-
-  method _build__grammars_build( --> HashRef[CodeRef]) {
-    return {
-            prolog  => sub { $self->_logger->debugf('prolog construction, number of remaining context is %d', $self->_count_contexts); return;  },
-            element => sub { $self->_logger->debugf('element construction, number of remaining context is %d', $self->_count_contexts); return; },
-            MiscAny => sub { $self->_logger->debugf('MiscAny construction, number of remaining context is %d', $self->_count_contexts); return; },
-            content => sub { $self->_logger->debugf('content construction, number of remaining context is %d', $self->_count_contexts); return; }
            };
   }
 
@@ -272,9 +228,7 @@ class MarpaX::Languages::XML::Impl::Parser {
                                                              grammar          => $grammar,
                                                              dispatcher       => $dispatcher,
                                                              namespaceSupport => $namespaceSupport,
-                                                             endEventName     => $realStartSymbol . '_COMPLETED',
-                                                             demolish         => $self->_get_grammar_demolish($realStartSymbol),
-                                                             build            => $self->_get_grammar_build($realStartSymbol)
+                                                             endEventName     => $realStartSymbol . '_COMPLETED'
                                                             );
     $self->_push_context($context);
     #
@@ -348,8 +302,7 @@ class MarpaX::Languages::XML::Impl::Parser {
     my $pos                            = pos($MarpaX::Languages::XML::Impl::Parser::buffer);
     my $length                         = length($MarpaX::Languages::XML::Impl::Parser::buffer);   # Faster than $io->length
     my $remaining                      = $length - $pos;
-    my $previous_can_stop              = 0;
-    my $eof                            = 0;
+    my $previousCanStop                = $context->canStop;
     #
     # Infinite loop until user says to stop or error
     #
@@ -362,12 +315,12 @@ class MarpaX::Languages::XML::Impl::Parser {
       #
       # First the events
       #
-      my $can_stop = 0;
+      my $canStop = false;
       foreach (@event_names) {
         #
         # Catch the end event name
         #
-        $can_stop = 1 if ($_ eq $endEventName);
+        $canStop = true if ($_ eq $endEventName);
         #
         # Dispatch events
         #
@@ -380,22 +333,32 @@ class MarpaX::Languages::XML::Impl::Parser {
         my %length = ();
         my $max_length = 0;
         if (@terminals_expected_to_symbol_ids) {
-          if (! $length) {
-            $self->_read($context, $eolHandling);
-            $length = length($MarpaX::Languages::XML::Impl::Parser::buffer);
-            if ($length <= 0) {
-              $self->_logger->debugf('EOF');
-              if ($can_stop || $previous_can_stop) {
+          if ($length <= 0) {
+            if ($self->_eof) {
+              if ($canStop || $previousCanStop) {
+                $context->canStop(true);
                 return $self;
               } else {
                 ParseException->throw("EOF but $startSymbol grammar is not over");
               }
+            } else {
+              $self->_read($context, $eolHandling);
+              $length = length($MarpaX::Languages::XML::Impl::Parser::buffer);
+              if ($length <= 0) {
+                $self->_eof(true);
+                if ($canStop || $previousCanStop) {
+                  $context->canStop(true);
+                  return $self;
+                } else {
+                  ParseException->throw("EOF but $startSymbol grammar is not over");
+                }
+              }
+              pos($MarpaX::Languages::XML::Impl::Parser::buffer) = 0;
+              $remaining = $length;
             }
-            pos($MarpaX::Languages::XML::Impl::Parser::buffer) = 0;
-            $remaining = $length;
           }
           my @undecidable = grep { $lexeme_minlength_by_symbol_ids[$_] > $remaining } @terminals_expected_to_symbol_ids;
-          if (@undecidable && ! $eof) {
+          if (@undecidable && ! $self->_eof) {
             my $needed = max(map { $lexeme_minlength_by_symbol_ids[$_] } @undecidable) - $remaining;
             $self->_logger->tracef('Undecidable: need at least %d characters more', $needed);
             my $old_block_size_value = $io->block_size_value;
@@ -416,8 +379,7 @@ class MarpaX::Languages::XML::Impl::Parser {
               $remaining = $length - $pos;
               next;
             } else {
-              $self->_logger->debugf('EOF');
-              $eof = true;
+              $self->_eof(true);
             }
           }
         }
@@ -435,7 +397,7 @@ class MarpaX::Languages::XML::Impl::Parser {
             #
             # Match reaches end of buffer ?
             #
-            if (($length_matched_data >= $remaining) && (! $eof)) { # Match up to the end of buffer is avoided as much as possible
+            if (($length_matched_data >= $remaining) && (! $self->_eof)) { # Match up to the end of buffer is avoided as much as possible
               $self->_reduce($context)->_read($context, $eolHandling);
               $pos = pos($MarpaX::Languages::XML::Impl::Parser::buffer) = 0;
               $length = length($MarpaX::Languages::XML::Impl::Parser::buffer);
@@ -448,8 +410,7 @@ class MarpaX::Languages::XML::Impl::Parser {
                 last;
               } else {
                 $remaining = $length;
-                $self->_logger->debugf('EOF');
-                $eof = true;
+                $self->_eof(true);
               }
             }
             #
@@ -470,7 +431,8 @@ class MarpaX::Languages::XML::Impl::Parser {
         #
         if (@terminals_expected_to_symbol_ids) {
           if (! $max_length) {
-            if ($can_stop || $previous_can_stop) {
+            if ($canStop || $previousCanStop) {
+              $context->canStop(true);
               return $self;
             } else {
               ParseException->throw('No predicted lexeme found');
@@ -543,7 +505,8 @@ class MarpaX::Languages::XML::Impl::Parser {
           #
           # No prediction: this is ok only if grammar end_of_grammar flag is set
           #
-          if ($can_stop || $previous_can_stop) {
+          if ($canStop || $previousCanStop) {
+            $context->canStop(true);
             return $self;
           } else {
             ParseException->throw('No predicted lexeme found and end of grammar not reached');
@@ -554,13 +517,12 @@ class MarpaX::Languages::XML::Impl::Parser {
       #
       # Go to next events
       #
-      $previous_can_stop = $can_stop;
+      $previousCanStop = $canStop;
     }
     #
     # Never reached -;
     #
     ParseException->throw('Internal error - part of the code that should never have been reached');
-    return $self;
   }
 
   with 'MarpaX::Languages::XML::Role::Parser';

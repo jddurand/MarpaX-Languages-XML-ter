@@ -30,9 +30,7 @@ class MarpaX::Languages::XML::Impl::Plugin::General::STag {
                                                                 encoding         => $context->encoding,
                                                                 dispatcher       => $dispatcher,
                                                                 namespaceSupport => $context->namespaceSupport,
-                                                                endEventName     => 'content_COMPLETED',
-                                                                demolish         => $parser->_get_grammar_demolish('content'),
-                                                                build            => $parser->_get_grammar_build('content')
+                                                                endEventName     => 'content_COMPLETED'
                                                                );
     $parser->_push_context($newContext);
     return EAT_CLIENT   # No ';' for fewer hops

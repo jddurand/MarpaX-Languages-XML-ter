@@ -23,8 +23,7 @@ role MarpaX::Languages::XML::Role::Context {
   requires 'lastLexemes';
   requires 'get_lastLexeme';
   requires 'set_lastLexeme';
-  requires 'demolish';
-  requires 'build';
+  requires 'canStop';
 
 }
 
