@@ -21,6 +21,9 @@ role MarpaX::Languages::XML::Role::Parser {
   requires 'get_grammar';
   requires 'get_grammar_endEventName';
   requires 'count_contexts';
+  requires 'get_context';
+  requires 'read';
+  requires 'eof';
 }
 
 1;

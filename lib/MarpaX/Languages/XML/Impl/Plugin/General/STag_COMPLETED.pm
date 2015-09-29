@@ -7,10 +7,12 @@ use Moops;
 class MarpaX::Languages::XML::Impl::Plugin::General::STag_COMPLETED {
   use MarpaX::Languages::XML::Impl::Context;
   use MarpaX::Languages::XML::Impl::Plugin;
+  use MarpaX::Languages::XML::Type::ImmediateAction -all;
   use MarpaX::Languages::XML::Type::PluggableConstant -all;
   use MarpaX::Languages::XML::Type::Context -all;
   use MarpaX::Languages::XML::Type::Dispatcher -all;
   use MarpaX::Languages::XML::Type::Parser -all;
+  use MooX::Role::Logger;
   use MooX::Role::Pluggable::Constants;
 
   extends qw/MarpaX::Languages::XML::Impl::Plugin/;
@@ -39,12 +41,13 @@ class MarpaX::Languages::XML::Impl::Plugin::General::STag_COMPLETED {
     #
     # We are pushing a nullable, this is why it is ok to say stop for a further resume
     #
-    $parser->_logger->tracef('STag_COMPLETED event: asking for a pause of %s', $context->grammar->startSymbol);
-    $context->eventSaysPause(true);
+    $parser->_logger->tracef('STag_COMPLETED event: asking for a stop of %s', $context->grammar->startSymbol);
+    $context->immediateAction('IMMEDIATEACTION_PAUSE');
 
     return EAT_CLIENT   # No ';' for fewer hops
   }
 
+  with 'MooX::Role::Logger';
 }
 
 1;

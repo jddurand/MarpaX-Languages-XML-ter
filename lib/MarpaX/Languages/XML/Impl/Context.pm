@@ -9,6 +9,7 @@ class MarpaX::Languages::XML::Impl::Context {
   use MarpaX::Languages::XML::Type::Dispatcher -all;
   use MarpaX::Languages::XML::Type::Grammar -all;
   use MarpaX::Languages::XML::Type::IO -all;
+  use MarpaX::Languages::XML::Type::ImmediateAction -all;
   use MarpaX::Languages::XML::Type::Encoding -all;
   use MarpaX::Languages::XML::Type::Recognizer -all;
   use MarpaX::Languages::XML::Type::LastLexemes -all;
@@ -37,7 +38,7 @@ class MarpaX::Languages::XML::Impl::Context {
                                         set_lastLexeme => 'set',
                                        }
                           );
-  has eventSaysPause => ( is => 'rw', isa => Bool, default => false );
+  has immediateAction => ( is => 'rw', isa => ImmediateAction, default => 'IMMEDIATEACTION_NONE' );
 
   method BUILD {
     $self->_logger->tracef('%s object construction', $self->grammar->startSymbol);

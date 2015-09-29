@@ -10,6 +10,7 @@ class MarpaX::Languages::XML::Impl::Plugin::General::ENCNAME_COMPLETED :assertio
   use MarpaX::Languages::XML::Type::Context -all;
   use MarpaX::Languages::XML::Type::Dispatcher -all;
   use MarpaX::Languages::XML::Type::Parser -all;
+  use MooX::Role::Logger;
   use MooX::Role::Pluggable::Constants;
 
   extends qw/MarpaX::Languages::XML::Impl::Plugin/;
@@ -25,6 +26,7 @@ class MarpaX::Languages::XML::Impl::Plugin::General::ENCNAME_COMPLETED :assertio
     return EAT_CLIENT   # No ';' for fewer hops
   }
 
+  with 'MooX::Role::Logger';
 }
 
 1;

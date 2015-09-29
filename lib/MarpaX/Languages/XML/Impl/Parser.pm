@@ -18,6 +18,7 @@ class MarpaX::Languages::XML::Impl::Parser {
   use MarpaX::Languages::XML::Type::Dispatcher -all;
   use MarpaX::Languages::XML::Type::Encoding -all;
   use MarpaX::Languages::XML::Type::Grammar -all;
+  use MarpaX::Languages::XML::Type::ImmediateAction -all;
   use MarpaX::Languages::XML::Type::NamespaceSupport -all;
   use MarpaX::Languages::XML::Type::IO -all;
   use MarpaX::Languages::XML::Type::Parser -all;
@@ -49,13 +50,13 @@ class MarpaX::Languages::XML::Impl::Parser {
 
   has _contexts       => ( is => 'rw',  isa => ArrayRef[Context], default => sub { [] }, 
                            handles_via => 'Array', handles => {
-                                                               count_contexts => 'count',
+                                                               count_contexts  => 'count',
                                                                _push_context   => 'push',
                                                                _pop_context    => 'pop',
-                                                               _get_context    => 'get'
+                                                               get_context     => 'get'
                                                               }
                          );
-  has _eof            => ( is => 'rw',  isa => Bool,              default => false, trigger => 1 );
+  has eof             => ( is => 'rw',  isa => Bool,              default => false, trigger => 1 );
   has _unicode_newline_regexp => ( is => 'rw',  isa => RegexpRef,                          default => sub { return qr/\R/; }  );
   has _grammars               => ( is => 'rw',  isa => HashRef[Grammar],                   lazy => 1, builder => 1, handles_via => 'Hash', handles => { get_grammar => 'get' } );
   has _grammars_events        => ( is => 'rw',  isa => HashRef[HashRef[HashRef[Str]]],     lazy => 1, builder => 1, handles_via => 'Hash', handles => { _get_grammar_events => 'get' } );
@@ -63,7 +64,7 @@ class MarpaX::Languages::XML::Impl::Parser {
   has _namespaceSupport       => ( is => 'rw',  isa => NamespaceSupport,                   lazy => 1, builder => 1 );
 
 
-  method _trigger__eof(Bool $eof) {
+  method _trigger_eof(Bool $eof) {
     $self->_logger->debugf('EOF');
   }
 
@@ -76,7 +77,7 @@ class MarpaX::Languages::XML::Impl::Parser {
 
   around _pop_context {
     my $count = $self->count_contexts;
-    my $previousContext = $self->_get_context(-1);
+    my $previousContext = $self->get_context(-1);
     my $rc = $self->${^NEXT}(@_);
     my $startSymbol = $rc->grammar->startSymbol;
     $self->_logger->debugf('Popped %s context (%d -> %d)', $startSymbol, $count, $count - 1);
@@ -227,21 +228,20 @@ class MarpaX::Languages::XML::Impl::Parser {
     return $self;
   }
 
-  method _read(Context $context, Bool $eolHandling --> Parser) {
+  method read(Context $context --> Parser) {
 
     $context->io->read;
-    $context->dispatcher->process('EOL', $self, $context) if ($eolHandling);
+    $context->dispatcher->process('EOL', $self, $context) if ($context->eolHandling);
 
     return $self;
   }
 
   method _parse_generic( --> Parser) {
-    my $context = $self->_get_context(-1);
+    my $context = $self->get_context(-1);
     #
     # Constant variables
     #
     my $endEventName                   = $context->endEventName;
-    my $eolHandling                    = $context->eolHandling;
     my $grammar                        = $context->grammar;
     my $compiledGrammar                = $grammar->compiledGrammar;
     my $startSymbol                    = $grammar->startSymbol;
@@ -266,44 +266,57 @@ class MarpaX::Languages::XML::Impl::Parser {
     #
     # Infinite loop until user says to last or error
     #
-    $context->eventSaysPause(false);
+    my $resumeMode = ($context->immediateAction eq 'IMMEDIATEACTION_RESUME');
+    $context->immediateAction('IMMEDIATEACTION_NONE');
 
     while (1) {
-      my @event_names                      = map { $_->[0] } @{$recognizer->events()};
-      $self->_logger->tracef('%s Events  : %s', $startSymbol, $recognizer->events);
-      my @terminals_expected_to_symbol_ids = $recognizer->terminals_expected_to_symbol_ids();
-      $self->_logger->tracef('%s Expected: %s', $startSymbol, $recognizer->terminals_expected);
-      $self->_logger->tracef('%s      Ids: %s', $startSymbol, \@terminals_expected_to_symbol_ids);
-      if (grep {$_ eq 'element_COMPLETED'} @event_names) {
-        print STDERR $recognizer->show_progress;
-      }
+      my $canStop = false;
       #
       # First the events
       #
-      my $canStop = false;
-      foreach (@event_names) {
-        #
-        # Catch the end event name
-        #
-        $canStop = true if ($_ eq $endEventName);
-        #
-        # Dispatch events
-        #
-        $dispatcher->notify($_, $self, $context);
-        #
-        # Event says last ?
-        #
-        return $self if ($context->eventSaysPause);
+      if (! $resumeMode) {
+        my @event_names                      = map { $_->[0] } @{$recognizer->events()};
+        $self->_logger->tracef('[%d]%s Events  : %s', $self->count_contexts, $startSymbol, $recognizer->events);
+        foreach (@event_names) {
+          #
+          # Catch the end event name
+          #
+          $canStop = true if ($_ eq $endEventName);
+          #
+          # Dispatch events
+          #
+          $dispatcher->notify($_, $self, $context);
+          #
+          # Immediate action ?
+          #
+          my $immediateAction = $context->immediateAction;
+          if ($immediateAction ne 'IMMEDIATEACTION_NONE') {
+            if ($immediateAction eq 'IMMEDIATEACTION_PAUSE') {
+              $self->_logger->tracef('[%d]%s IMMEDIATEACTION_PAUSE', $self->count_contexts, $startSymbol);
+              return $self;
+            } elsif ($immediateAction eq 'IMMEDIATEACTION_STOP') {
+              $self->_logger->tracef('[%d]%s IMMEDIATEACTION_STOP', $self->count_contexts, $startSymbol);
+              $self->_pop_context;
+              return $self;
+            } else {
+              ParseException->throw("Unsupported immediate action: $immediateAction");
+            }
+          }
+        }
       }
+      $resumeMode = false;
       #
       # Then the expected lexemes
       #
+      my @terminals_expected_to_symbol_ids = $recognizer->terminals_expected_to_symbol_ids();
+      $self->_logger->tracef('[%d]%s Expected: %s', $self->count_contexts, $startSymbol, $recognizer->terminals_expected);
+      $self->_logger->tracef('[%d]%s      Ids: %s', $self->count_contexts, $startSymbol, \@terminals_expected_to_symbol_ids);
       while (1) {
         my %length = ();
         my $max_length = 0;
         if (@terminals_expected_to_symbol_ids) {
           if ($length <= 0) {
-            if ($self->_eof) {
+            if ($self->eof) {
               if ($canStop || $previousCanStop) {
                 $self->_pop_context;
                 return $self;
@@ -311,10 +324,10 @@ class MarpaX::Languages::XML::Impl::Parser {
                 ParseException->throw("EOF but $startSymbol grammar is not over");
               }
             } else {
-              $self->_read($context, $eolHandling);
+              $self->read($context);
               $length = length($MarpaX::Languages::XML::Impl::Parser::buffer);
               if ($length <= 0) {
-                $self->_eof(true);
+                $self->eof(true);
                 if ($canStop || $previousCanStop) {
                   $self->_pop_context;
                   return $self;
@@ -327,14 +340,14 @@ class MarpaX::Languages::XML::Impl::Parser {
             }
           }
           my @undecidable = grep { $lexeme_minlength_by_symbol_ids[$_] > $remaining } @terminals_expected_to_symbol_ids;
-          if (@undecidable && ! $self->_eof) {
+          if (@undecidable && ! $self->eof) {
             my $needed = max(map { $lexeme_minlength_by_symbol_ids[$_] } @undecidable) - $remaining;
-            $self->_logger->tracef('%s Undecidable: need at least %d characters more', $startSymbol, $needed);
+            $self->_logger->tracef('[%d]%s Undecidable: need at least %d characters more', $self->count_contexts, $startSymbol, $needed);
             my $old_block_size_value = $io->block_size_value;
             if ($old_block_size_value != $needed) {
               $io->block_size($needed);
             }
-            $self->_read($context, $eolHandling);
+            $self->read($context);
             if ($old_block_size_value != $needed) {
               $io->block_size($old_block_size_value);
             }
@@ -348,7 +361,7 @@ class MarpaX::Languages::XML::Impl::Parser {
               $remaining = $length - $pos;
               next;
             } else {
-              $self->_eof(true);
+              $self->eof(true);
             }
           }
         }
@@ -366,8 +379,8 @@ class MarpaX::Languages::XML::Impl::Parser {
             #
             # Match reaches end of buffer ?
             #
-            if (($length_matched_data >= $remaining) && (! $self->_eof)) { # Match up to the end of buffer is avoided as much as possible
-              $self->_reduce($context)->_read($context, $eolHandling);
+            if (($length_matched_data >= $remaining) && (! $self->eof)) { # Match up to the end of buffer is avoided as much as possible
+              $self->_reduce($context)->read($context);
               $pos = pos($MarpaX::Languages::XML::Impl::Parser::buffer) = 0;
               $length = length($MarpaX::Languages::XML::Impl::Parser::buffer);
               if ($length > $remaining) {
@@ -379,7 +392,7 @@ class MarpaX::Languages::XML::Impl::Parser {
                 last;
               } else {
                 $remaining = $length;
-                $self->_eof(true);
+                $self->eof(true);
               }
             }
             #
