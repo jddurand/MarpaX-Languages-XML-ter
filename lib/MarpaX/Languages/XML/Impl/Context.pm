@@ -15,6 +15,7 @@ class MarpaX::Languages::XML::Impl::Context {
   use MarpaX::Languages::XML::Type::NamespaceSupport -all;
   use MooX::HandlesVia;
   use Types::Common::Numeric -all;
+  use MooX::Role::Logger;
   use Throwable::Factory
     IOException    => undef
     ;
@@ -36,7 +37,16 @@ class MarpaX::Languages::XML::Impl::Context {
                                         set_lastLexeme => 'set',
                                        }
                           );
-  has canStop          => ( is => 'rw',   isa => Bool, default => false );
+  has previousCanStop  => ( is => 'rw',   isa => Bool, default => false );
+  has immediatePause   => ( is => 'rw',   isa => Bool, default => false );
+
+  method BUILD {
+    $self->_logger->tracef('%s object construction', $self->grammar->startSymbol);
+  }
+
+  method DEMOLISH {
+    $self->_logger->tracef('%s object destruction', $self->grammar->startSymbol);
+  }
 
   method _trigger_io(IO $io --> Undef) {
     return if ($self->has_encoding);
@@ -97,6 +107,7 @@ class MarpaX::Languages::XML::Impl::Context {
   }
 
   with 'MarpaX::Languages::XML::Role::Context';
+  with 'MooX::Role::Logger';
 }
 
 1;

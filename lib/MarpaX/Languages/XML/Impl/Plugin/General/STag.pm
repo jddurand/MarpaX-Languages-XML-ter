@@ -30,9 +30,15 @@ class MarpaX::Languages::XML::Impl::Plugin::General::STag {
                                                                 encoding         => $context->encoding,
                                                                 dispatcher       => $dispatcher,
                                                                 namespaceSupport => $context->namespaceSupport,
-                                                                endEventName     => 'content_COMPLETED'
+                                                                # endEventName     => 'content_COMPLETED'
+                                                                endEventName     => 'nullable'
                                                                );
     $parser->_push_context($newContext);
+    #
+    # Inform parser to do an immediate pause
+    #
+    $context->immediatePause(true);
+
     return EAT_CLIENT   # No ';' for fewer hops
   }
 

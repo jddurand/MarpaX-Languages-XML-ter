@@ -24,7 +24,7 @@ lexeme default = action => [start,length,value,name] forgiving => 1
 # start                         ::= document | extParsedEnt | extSubset
 start                         ::= $START
 _MiscAny                      ::= Misc*
-MiscAny                       ::= (internal_event_for_immediate_pause) _MiscAny
+MiscAny                       ::= (internal_event_for_immediate_pause) (nullable) _MiscAny
 # Note: end_document is when either we abandoned parsing or reached the end of input of the 'document' grammar
 document                      ::= prolog element MiscAny
 Name                          ::= NAME
@@ -153,8 +153,8 @@ contentUnit                   ::= element CharData
                                 | Comment CharData
                                 | Comment
 contentUnitAny                ::= contentUnit*
-content                       ::= (internal_event_for_immediate_pause) CharData contentUnitAny
-content                       ::= (internal_event_for_immediate_pause)          contentUnitAny
+content                       ::= (internal_event_for_immediate_pause) CharData (nullable) contentUnitAny
+content                       ::= (internal_event_for_immediate_pause)          (nullable) contentUnitAny
 EmptyElemTagUnit              ::= S Attribute
 EmptyElemTagUnitAny           ::= EmptyElemTagUnit*
 EmptyElemTag                  ::= ELEMENT_START Name EmptyElemTagUnitAny S EMPTYELEM_END   # [WFC: Unique Att Spec]
@@ -532,6 +532,8 @@ COLON ::= _COLON
 #
 event '!internal_event_for_immediate_pause' = nulled <internal_event_for_immediate_pause>
 internal_event_for_immediate_pause ::= ;
+event '!nullable' = nulled <nullable>
+nullable ::= ;
 #
 # Nullable rules
 #

@@ -50,7 +50,8 @@ class MarpaX::Languages::XML::Impl::Parser {
                            handles_via => 'Array', handles => {
                                                                _count_contexts => 'count',
                                                                _push_context   => 'push',
-                                                               _pop_context    => 'pop'
+                                                               _pop_context    => 'pop',
+                                                               _get_context    => 'get'
                                                               }
                          );
   has _eof            => ( is => 'rw',  isa => Bool,              default => false, trigger => 1 );
@@ -62,25 +63,28 @@ class MarpaX::Languages::XML::Impl::Parser {
   around _push_context {
     my $count = $self->_count_contexts;
     my $rc = $self->${^NEXT}(@_);
-    $self->_logger->debugf('Pushed %s context (%d ->%d), canStop=%s', $_[0]->grammar->startSymbol, $count, $count + 1, $_[0]->canStop);
+    $self->_logger->debugf('Pushed %s context (%d -> %d), canStop=%s', $_[0]->grammar->startSymbol, $count, $count + 1, $_[0]->previousCanStop);
     return $rc;
   };
 
   around _pop_context {
     my $count = $self->_count_contexts;
+    my $previousContext = $self->_get_context(-1);
     my $rc = $self->${^NEXT}(@_);
     my $startSymbol = $rc->grammar->startSymbol;
+    my $previousCanStop = $rc->previousCanStop;
+    $self->_logger->debugf('Popped %s context (%d -> %d), canStop=%s', $startSymbol, $count, $count - 1, $previousCanStop);
     if ($startSymbol eq 'prolog') {
       #
       # After prolog we want to continue to element
       #
       my $grammar = $self->_get_grammar('element');
       my $context = MarpaX::Languages::XML::Impl::Context->new(
-                                                               io               => $rc->io,
+                                                               io               => $previousContext->io,
                                                                grammar          => $grammar,
-                                                               encoding         => $rc->encoding,
-                                                               dispatcher       => $rc->dispatcher,
-                                                               namespaceSupport => $rc->namespaceSupport,
+                                                               encoding         => $previousContext->encoding,
+                                                               dispatcher       => $previousContext->dispatcher,
+                                                               namespaceSupport => $previousContext->namespaceSupport,
                                                                endEventName     => 'element_COMPLETED'
                                                               );
       $self->_push_context($context);
@@ -92,17 +96,16 @@ class MarpaX::Languages::XML::Impl::Parser {
         #
         my $grammar = $self->_get_grammar('MiscAny');
         my $context = MarpaX::Languages::XML::Impl::Context->new(
-                                                                 io               => $rc->io,
+                                                                 io               => $previousContext->io,
                                                                  grammar          => $grammar,
-                                                                 encoding         => $rc->encoding,
-                                                                 dispatcher       => $rc->dispatcher,
-                                                                 namespaceSupport => $rc->namespaceSupport,
-                                                                 endEventName     => 'MiscAny_COMPLETED'
+                                                                 encoding         => $previousContext->encoding,
+                                                                 dispatcher       => $previousContext->dispatcher,
+                                                                 namespaceSupport => $previousContext->namespaceSupport,
+                                                                 endEventName     => '!nullable'
                                                                 );
         $self->_push_context($context);
       }
     }
-    $self->_logger->debugf('Popped %s context (%d ->%d), canStop=%s', $rc->grammar->startSymbol, $count, $count - 1, $rc->canStop);
     return $rc;
   };
 
@@ -146,14 +149,14 @@ class MarpaX::Languages::XML::Impl::Parser {
                                   }
                        },
             MiscAny => {
-                        completed => {
-                                      MiscAny_COMPLETED       => 'MiscAny',
-                                     }
+#                        nulled => {
+#                                      '!nullable'       => 'nullable',
+#                                     }
                        },
             content => {
-                        completed => {
-                                      content_COMPLETED       => 'content',
-                                     }
+#                        completed => {
+#                                      content_COMPLETED       => 'content',
+#                                     }
                        }
            };
   }
@@ -244,10 +247,10 @@ class MarpaX::Languages::XML::Impl::Parser {
     #
     # Loop until there is no more context
     #
-    do {
-      $self->_parse_generic($self->_pop_context);
+    while ($self->_count_contexts) {
+      $self->_parse_generic($self->_get_context(-1));
       $self->_logger->tracef('Number of remaining contexts: %d', $self->_count_contexts);
-    } while ($self->_count_contexts);
+    };
     #
     # Return code eventually under SAX handler control
     #
@@ -302,16 +305,23 @@ class MarpaX::Languages::XML::Impl::Parser {
     my $pos                            = pos($MarpaX::Languages::XML::Impl::Parser::buffer);
     my $length                         = length($MarpaX::Languages::XML::Impl::Parser::buffer);   # Faster than $io->length
     my $remaining                      = $length - $pos;
-    my $previousCanStop                = $context->canStop;
+    my $previousCanStop                = $context->previousCanStop;
+    #
+    # Initialize immediatePause flag
+    #
+    $context->immediatePause(false);
     #
     # Infinite loop until user says to stop or error
     #
     while (1) {
       my @event_names                      = map { $_->[0] } @{$recognizer->events()};
-      $self->_logger->tracef('Events  : %s', $recognizer->events);
+      $self->_logger->tracef('%s Events  : %s', $startSymbol, $recognizer->events);
       my @terminals_expected_to_symbol_ids = $recognizer->terminals_expected_to_symbol_ids();
-      $self->_logger->tracef('Expected: %s', $recognizer->terminals_expected);
-      $self->_logger->tracef('     Ids: %s', \@terminals_expected_to_symbol_ids);
+      $self->_logger->tracef('%s Expected: %s', $startSymbol, $recognizer->terminals_expected);
+      $self->_logger->tracef('%s      Ids: %s', $startSymbol, \@terminals_expected_to_symbol_ids);
+      if (grep {$_ eq 'element_COMPLETED'} @event_names) {
+        print STDERR $recognizer->show_progress;
+      }
       #
       # First the events
       #
@@ -327,6 +337,10 @@ class MarpaX::Languages::XML::Impl::Parser {
         $dispatcher->notify($_, $self, $context);
       }
       #
+      # Immediate pause ?
+      #
+      last if ($context->immediatePause);
+      #
       # Then the expected lexemes
       #
       while (1) {
@@ -336,7 +350,7 @@ class MarpaX::Languages::XML::Impl::Parser {
           if ($length <= 0) {
             if ($self->_eof) {
               if ($canStop || $previousCanStop) {
-                $context->canStop(true);
+                $self->_pop_context();
                 return $self;
               } else {
                 ParseException->throw("EOF but $startSymbol grammar is not over");
@@ -347,7 +361,7 @@ class MarpaX::Languages::XML::Impl::Parser {
               if ($length <= 0) {
                 $self->_eof(true);
                 if ($canStop || $previousCanStop) {
-                  $context->canStop(true);
+                  $self->_pop_context();
                   return $self;
                 } else {
                   ParseException->throw("EOF but $startSymbol grammar is not over");
@@ -360,7 +374,7 @@ class MarpaX::Languages::XML::Impl::Parser {
           my @undecidable = grep { $lexeme_minlength_by_symbol_ids[$_] > $remaining } @terminals_expected_to_symbol_ids;
           if (@undecidable && ! $self->_eof) {
             my $needed = max(map { $lexeme_minlength_by_symbol_ids[$_] } @undecidable) - $remaining;
-            $self->_logger->tracef('Undecidable: need at least %d characters more', $needed);
+            $self->_logger->tracef('%s Undecidable: need at least %d characters more', $startSymbol, $needed);
             my $old_block_size_value = $io->block_size_value;
             if ($old_block_size_value != $needed) {
               $io->block_size($needed);
@@ -432,7 +446,7 @@ class MarpaX::Languages::XML::Impl::Parser {
         if (@terminals_expected_to_symbol_ids) {
           if (! $max_length) {
             if ($canStop || $previousCanStop) {
-              $context->canStop(true);
+              $self->_pop_context();
               return $self;
             } else {
               ParseException->throw('No predicted lexeme found');
@@ -506,7 +520,7 @@ class MarpaX::Languages::XML::Impl::Parser {
           # No prediction: this is ok only if grammar end_of_grammar flag is set
           #
           if ($canStop || $previousCanStop) {
-            $context->canStop(true);
+            $self->_pop_context();
             return $self;
           } else {
             ParseException->throw('No predicted lexeme found and end of grammar not reached');
@@ -517,12 +531,14 @@ class MarpaX::Languages::XML::Impl::Parser {
       #
       # Go to next events
       #
-      $previousCanStop = $canStop;
+      $previousCanStop = $context->previousCanStop($canStop);
     }
     #
-    # Never reached -;
+    # Reached only in the case of immediate pause
     #
-    ParseException->throw('Internal error - part of the code that should never have been reached');
+    $self->_logger->tracef('%s Immediate pause', $startSymbol);
+    $context->previousCanStop($previousCanStop);
+    return $self;
   }
 
   with 'MarpaX::Languages::XML::Role::Parser';
