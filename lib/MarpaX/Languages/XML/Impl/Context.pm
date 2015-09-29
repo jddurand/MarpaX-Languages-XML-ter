@@ -37,8 +37,7 @@ class MarpaX::Languages::XML::Impl::Context {
                                         set_lastLexeme => 'set',
                                        }
                           );
-  has previousCanStop  => ( is => 'rw',   isa => Bool, default => false );
-  has immediatePause   => ( is => 'rw',   isa => Bool, default => false );
+  has eventSaysPause => ( is => 'rw', isa => Bool, default => false );
 
   method BUILD {
     $self->_logger->tracef('%s object construction', $self->grammar->startSymbol);

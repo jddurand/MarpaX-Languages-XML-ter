@@ -23,10 +23,11 @@ lexeme default = action => [start,length,value,name] forgiving => 1
 
 # start                         ::= document | extParsedEnt | extSubset
 start                         ::= $START
-_MiscAny                      ::= Misc*
-MiscAny                       ::= (internal_event_for_immediate_pause) (nullable) _MiscAny
-# Note: end_document is when either we abandoned parsing or reached the end of input of the 'document' grammar
-document                      ::= prolog element MiscAny
+MiscAny                       ::= Misc*
+#
+# The presence of start_document event alleviates the need of internal_event_for_immediate_pause
+#
+document                      ::= (start_document) prolog element MiscAny (end_document)
 Name                          ::= NAME
 Names                         ::= Name+ separator => SPACE proper => 1
 Nmtoken                       ::= NMTOKENMANY
@@ -81,10 +82,10 @@ CDStart                       ::= CDATA_START
 CData                         ::= CDATAMANY
 CData                         ::=
 CDEnd                         ::= CDATA_END
-prolog                        ::= (internal_event_for_immediate_pause) XMLDecl MiscAny
-prolog                        ::= (internal_event_for_immediate_pause)         MiscAny
-prolog                        ::= (internal_event_for_immediate_pause) XMLDecl MiscAny doctypedecl MiscAny
-prolog                        ::= (internal_event_for_immediate_pause)         MiscAny doctypedecl MiscAny
+prolog                        ::= XMLDecl MiscAny
+prolog                        ::=         MiscAny
+prolog                        ::= XMLDecl MiscAny doctypedecl MiscAny
+prolog                        ::=         MiscAny doctypedecl MiscAny
 XMLDecl                       ::= XMLDECL_START VersionInfo EncodingDecl SDDecl S XMLDECL_END
 XMLDecl                       ::= XMLDECL_START VersionInfo EncodingDecl SDDecl   XMLDECL_END
 XMLDecl                       ::= XMLDECL_START VersionInfo EncodingDecl        S XMLDECL_END
@@ -131,6 +132,11 @@ SDDecl                        ::= S STANDALONE Eq SQUOTE YES SQUOTE # [VC: Stand
                                 | S STANDALONE Eq SQUOTE  NO SQUOTE  # [VC: Standalone Document Declaration]
                                 | S STANDALONE Eq DQUOTE YES DQUOTE  # [VC: Standalone Document Declaration]
                                 | S STANDALONE Eq DQUOTE  NO DQUOTE  # [VC: Standalone Document Declaration]
+#
+# Take care: start_element SAX event is NOT at the start of an element. This is why there is
+# the internal_event_for_immediate_pause event
+# On the other hand, end_element does match the end of the element rule
+#
 element                       ::= (internal_event_for_immediate_pause) EmptyElemTag (start_element) (end_element)
                                 | (internal_event_for_immediate_pause) STag (start_element) content ETag (end_element) # [WFC: Element Type Match] [VC: Element Valid]
 STagUnit                      ::= S Attribute
@@ -153,8 +159,9 @@ contentUnit                   ::= element CharData
                                 | Comment CharData
                                 | Comment
 contentUnitAny                ::= contentUnit*
-content                       ::= (internal_event_for_immediate_pause) CharData (nullable) contentUnitAny
-content                       ::= (internal_event_for_immediate_pause)          (nullable) contentUnitAny
+content                       ::= (content_NULLED) _content (content_NULLED)
+_content                      ::= CharData contentUnitAny
+_content                      ::=          contentUnitAny
 EmptyElemTagUnit              ::= S Attribute
 EmptyElemTagUnitAny           ::= EmptyElemTagUnit*
 EmptyElemTag                  ::= ELEMENT_START Name EmptyElemTagUnitAny S EMPTYELEM_END   # [WFC: Unique Att Spec]
@@ -527,18 +534,19 @@ XMLNSCOLON ::= _XMLNSCOLON
 XMLNS ::= _XMLNS
 COLON ::= _COLON
 #
-# Internal nullable rule to force the recognizer to stop immeidately,
-# before reading any lexeme
+# Internal nullable rule to force the recognizer to stop immediately,
+# This event is hardcoded.
 #
 event '!internal_event_for_immediate_pause' = nulled <internal_event_for_immediate_pause>
 internal_event_for_immediate_pause ::= ;
-event '!nullable' = nulled <nullable>
-nullable ::= ;
+content_NULLED ::= ;
 #
 # Nullable rules
 #
+start_document      ::= ;
 start_element       ::= ;
 end_element         ::= ;
+end_document        ::= ;
 #
 # Events can be added on-the-fly at grammar generation
 #
