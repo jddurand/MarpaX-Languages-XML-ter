@@ -63,7 +63,7 @@ class MarpaX::Languages::XML::Impl::Parser {
   around _push_context {
     my $count = $self->_count_contexts;
     my $rc = $self->${^NEXT}(@_);
-    $self->_logger->debugf('Pushed %s context (%d -> %d), canStop=%s', $_[0]->grammar->startSymbol, $count, $count + 1, $_[0]->previousCanStop);
+    $self->_logger->debugf('Pushed %s context (%d -> %d), canStop=%s immediatePause=%s', $_[0]->grammar->startSymbol, $count, $count + 1, $_[0]->previousCanStop, $_[0]->immediatePause);
     return $rc;
   };
 
@@ -73,7 +73,8 @@ class MarpaX::Languages::XML::Impl::Parser {
     my $rc = $self->${^NEXT}(@_);
     my $startSymbol = $rc->grammar->startSymbol;
     my $previousCanStop = $rc->previousCanStop;
-    $self->_logger->debugf('Popped %s context (%d -> %d), canStop=%s', $startSymbol, $count, $count - 1, $previousCanStop);
+    my $immediatePause = $rc->immediatePause;
+    $self->_logger->debugf('Popped %s context (%d -> %d), canStop=%s immediatePause=%s', $startSymbol, $count, $count - 1, $previousCanStop, $immediatePause);
     if ($startSymbol eq 'prolog') {
       #
       # After prolog we want to continue to element
