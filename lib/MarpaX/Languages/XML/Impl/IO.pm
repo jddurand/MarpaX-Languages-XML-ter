@@ -87,7 +87,8 @@ class MarpaX::Languages::XML::Impl::IO {
   method _open(Str $source, @args --> IO) {
 
     $self->_logger->tracef('Opening %s %s', $source, \@args);
-    $self->_io(io($source))->open(@args);
+    my $io = io($source)->autoclose(0)->open(@args);
+    $self->_io($io);
 
     return $self;
   }
