@@ -5,6 +5,7 @@ use Moops;
 # ABSTRACT: IO implementation
 
 class MarpaX::Languages::XML::Impl::IO {
+  use MarpaX::Languages::XML::Impl::Encoding;
   use MarpaX::Languages::XML::Role::IO;
   use MarpaX::Languages::XML::Type::IO -all;
   use Fcntl qw/:seek/;
@@ -21,24 +22,74 @@ class MarpaX::Languages::XML::Impl::IO {
   # AUTHORITY
 
   has source            => ( is => 'ro',  isa => Str,  required => 1, trigger => 1 );
+  has encodingName      => ( is => 'rwp', isa => Str,  default => 'binary', init_arg => undef );
 
   has _io               => ( is => 'rw',  isa => InstanceOf['IO::All'] );
   has _block_size_value => ( is => 'rw',  isa => PositiveInt, default => 1024 );
 
-  method _trigger_source(Str $source --> Undef) {
-    $self->_open($source);
+  method _trigger_source(Str $source --> IO) {
+    $self->_open($source)->_guessEncoding;
+  }
+
+  method _guessEncoding( --> IO) {
+    #
+    # Guess encoding
+    # --------------
+    #
+    # Set binary mode
+    #
+    $self->binary;
+    #
+    # Position at the beginning
+    #
+    $self->pos(0);
+    #
+    # Read the first bytes. 1024 is far enough.
+    #
+    my $old_block_size = $self->block_size_value();
+    $self->block_size(1024) if ($old_block_size != 1024);
+    $self->read;
+    IOException->throw('EOF when reading first bytes') if ($self->length <= 0);
+    #
+    # The stream is supposed to be opened with the correct encoding, if any
+    # If there was no guess from the BOM, default will be UTF-8. Nevertheless we
+    # do NOT set it immediately: if it UTF-8, the beginning of the XML file will
+    # start with one byte chars only, which is compatible with binary mode.
+    # And if it is not UTF-8, the first chars will tell us more.
+    # If the encoding is setted to something else but what the BOM eventually says
+    # this will be handled by a callback from the grammar.
+    #
+    # In theory we should have the localized buffer available. We "//" just in case
+    #
+    my $bytes = ${$self->buffer};
+    #
+    # An XML processor SHOULD work with case-insensitive encoding name. So we uc()
+    # (note: per def an encoding name contains only Latin1 character, i.e. uc() is ok)
+    #
+    my $encoding = MarpaX::Languages::XML::Impl::Encoding->new(bytes => $bytes);
+    #
+    # Make sure we are positionned at the beginning of the buffer and at correct
+    # source position. This is inefficient for everything that is not seekable.
+    # And reset it appropriately to Encoding object
+    #
+    $self->pos($encoding->byteStart);
+    $self->clear;
+    $self->encoding($encoding->value);
+    $self->block_size($old_block_size) if ($old_block_size != 1024);
+
+    return $self;
   }
 
   method DEMOLISH {
     $self->_close();
   }
 
-  method _open(Str $source, @args --> Undef) {
+  method _open(Str $source, @args --> IO) {
 
     $self->_logger->tracef('Opening %s %s', $source, \@args);
     $self->_io(io($source))->open(@args);
 
-    return;
+    return $self;
   }
 
   method _close( --> Undef) {
@@ -67,6 +118,7 @@ class MarpaX::Languages::XML::Impl::IO {
 
     $self->_logger->tracef('Setting binary mode');
     $self->_io->binary();
+    $self->_set_encodingName('binary');
 
     return $self;
   }
@@ -128,10 +180,11 @@ class MarpaX::Languages::XML::Impl::IO {
     return $self;
   }
 
-  method encoding(Str $encoding --> IO) {
+  method encoding(Str $encodingName --> IO) {
 
-    $self->_logger->tracef('Setting encoding "%s"', $encoding);
-    $self->_io->encoding($encoding);
+    $self->_logger->tracef('Setting encoding "%s"', $encodingName);
+    $self->_io->encoding($encodingName);
+    $self->_set_encodingName($encodingName);
 
     return $self;
   }

@@ -63,7 +63,7 @@ class MarpaX::Languages::XML::Impl::Plugin::General::content_NULLED {
         if ($old_block_size_value != $needed) {
           $io->block_size($needed);
         }
-        $parser->read($context);
+        $parser->read($dispatcher, $context);
         if ($old_block_size_value != $needed) {
           $io->block_size($old_block_size_value);
         }

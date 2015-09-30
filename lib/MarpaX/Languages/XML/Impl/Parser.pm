@@ -12,12 +12,10 @@ class MarpaX::Languages::XML::Impl::Parser {
   use MarpaX::Languages::XML::Impl::Grammar;
   use MarpaX::Languages::XML::Impl::ImmediateAction::Constant;
   use MarpaX::Languages::XML::Impl::IO;
-  use MarpaX::Languages::XML::Impl::Encoding;
   use MarpaX::Languages::XML::Impl::PluginFactory;
   use MarpaX::Languages::XML::Role::Parser;
   use MarpaX::Languages::XML::Type::Context -all;
   use MarpaX::Languages::XML::Type::Dispatcher -all;
-  use MarpaX::Languages::XML::Type::Encoding -all;
   use MarpaX::Languages::XML::Type::Grammar -all;
   use MarpaX::Languages::XML::Type::NamespaceSupport -all;
   use MarpaX::Languages::XML::Type::IO -all;
@@ -57,6 +55,8 @@ class MarpaX::Languages::XML::Impl::Parser {
                                                               }
                          );
   has eof             => ( is => 'rw',  isa => Bool,              default => false, trigger => 1 );
+  has eolHandling     => ( is => 'rw',  isa => Bool,              default => false );
+
   has _unicode_newline_regexp => ( is => 'rw',  isa => RegexpRef,                          default => sub { return qr/\R/; }  );
   has _grammars               => ( is => 'rw',  isa => HashRef[Grammar],                   lazy => 1, builder => 1, handles_via => 'Hash', handles => { get_grammar => 'get' } );
   has _grammars_events        => ( is => 'rw',  isa => HashRef[HashRef[HashRef[Str]]],     lazy => 1, builder => 1, handles_via => 'Hash', handles => { _get_grammar_events => 'get' } );
@@ -189,22 +189,22 @@ class MarpaX::Languages::XML::Impl::Parser {
     my $context = MarpaX::Languages::XML::Impl::Context->new(
                                                              io               => $io,
                                                              grammar          => $grammar,
-                                                             dispatcher       => $dispatcher,
                                                              namespaceSupport => $namespaceSupport,
-                                                             endEventName     => $self->get_grammar_endEventName($startSymbol)
+                                                             endEventName     => $self->get_grammar_endEventName($startSymbol),
+                                                             eolHandling      => $self->eolHandling
                                                             );
     $self->_push_context($context);
     #
     # Make sure that context will be demolished
     #
-    ($io, $grammar, $dispatcher, $namespaceSupport, $context) = ();
+    ($io, $grammar, $namespaceSupport, $context) = ();
     #
     # Loop until there is no more context
     #
     do {
-      $self->_parse_generic;
+      $self->_parse_generic($dispatcher);
       #
-      # The pop is done eventually by _parse_generic()
+      # The pop is done eventually inside _parse_generic()
       #
       $self->_logger->tracef('Number of remaining contexts: %d', $self->count_contexts);
     } while ($self->count_contexts);
@@ -228,15 +228,15 @@ class MarpaX::Languages::XML::Impl::Parser {
     return $self;
   }
 
-  method read(Context $context --> Parser) {
+  method read(Dispatcher $dispatcher, Context $context --> Parser) {
 
     $context->io->read;
-    $context->dispatcher->process('EOL', $self, $context) if ($context->eolHandling);
+    $dispatcher->process('EOL', $self, $context) if ($self->eolHandling);
 
     return $self;
   }
 
-  method _parse_generic( --> Parser) {
+  method _parse_generic(Dispatcher $dispatcher --> Parser) {
     my $context = $self->get_context(-1);
     #
     # Constant variables
@@ -249,7 +249,6 @@ class MarpaX::Languages::XML::Impl::Parser {
     my $io                             = $context->io;
     my $line                           = $context->line;
     my $column                         = $context->column;
-    my $dispatcher                     = $context->dispatcher;
     my $unicode_newline_regexp         = $self->_unicode_newline_regexp;
     my @lexeme_match_by_symbol_ids     = $grammar->elements_lexemesRegexpBySymbolId;
     my @lexeme_exclusion_by_symbol_ids = $grammar->elements_lexemesExclusionsRegexpBySymbolId;
@@ -324,7 +323,7 @@ class MarpaX::Languages::XML::Impl::Parser {
                 ParseException->throw("EOF but $startSymbol grammar is not over");
               }
             } else {
-              $self->read($context);
+              $self->read($dispatcher, $context);
               $length = length($MarpaX::Languages::XML::Impl::Parser::buffer);
               if ($length <= 0) {
                 $self->eof(true);
@@ -347,7 +346,7 @@ class MarpaX::Languages::XML::Impl::Parser {
             if ($old_block_size_value != $needed) {
               $io->block_size($needed);
             }
-            $self->read($context);
+            $self->read($dispatcher, $context);
             if ($old_block_size_value != $needed) {
               $io->block_size($old_block_size_value);
             }
@@ -380,7 +379,7 @@ class MarpaX::Languages::XML::Impl::Parser {
             # Match reaches end of buffer ?
             #
             if (($length_matched_data >= $remaining) && (! $self->eof)) { # Match up to the end of buffer is avoided as much as possible
-              $self->_reduce($context)->read($context);
+              $self->_reduce($context)->read($dispatcher, $context);
               $pos = pos($MarpaX::Languages::XML::Impl::Parser::buffer) = 0;
               $length = length($MarpaX::Languages::XML::Impl::Parser::buffer);
               if ($length > $remaining) {

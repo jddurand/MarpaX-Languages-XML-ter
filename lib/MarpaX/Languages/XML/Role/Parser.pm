@@ -24,6 +24,7 @@ role MarpaX::Languages::XML::Role::Parser {
   requires 'get_context';
   requires 'read';
   requires 'eof';
+  requires 'eolHandling';
 }
 
 1;

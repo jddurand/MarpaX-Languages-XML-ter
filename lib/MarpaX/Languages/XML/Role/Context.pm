@@ -12,11 +12,8 @@ role MarpaX::Languages::XML::Role::Context {
 
   requires 'io';
   requires 'grammar';
-  requires 'dispatcher';
   requires 'endEventName';
   requires 'namespaceSupport';
-  requires 'eolHandling';
-  requires 'encoding';
   requires 'recognizer';
   requires 'line';
   requires 'column';
