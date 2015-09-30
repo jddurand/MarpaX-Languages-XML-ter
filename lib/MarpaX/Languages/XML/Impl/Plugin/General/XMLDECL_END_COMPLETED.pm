@@ -26,9 +26,13 @@ class MarpaX::Languages::XML::Impl::Plugin::General::XMLDECL_END_COMPLETED {
 
   method N_XMLDECL_END_COMPLETED(Dispatcher $dispatcher, Parser $parser, Context $context --> PluggableConstant) {
     #
-    # Set the oldHandling flag
+    # Set the eolHandling flag
     #
     $parser->eolHandling(true);
+    #
+    # And say that reduce of buffer is allowed
+    #
+    $parser->canReduce(true);
 
     return EAT_CLIENT   # No ';' for fewer hops
   }

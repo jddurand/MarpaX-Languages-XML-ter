@@ -19,6 +19,7 @@ class MarpaX::Languages::XML::Impl::Parser {
   use MarpaX::Languages::XML::Type::Grammar -all;
   use MarpaX::Languages::XML::Type::NamespaceSupport -all;
   use MarpaX::Languages::XML::Type::IO -all;
+  use MarpaX::Languages::XML::Type::LastLexemes -all;
   use MarpaX::Languages::XML::Type::Parser -all;
   use MarpaX::Languages::XML::Type::Recognizer -all;
   use MarpaX::Languages::XML::Type::StartSymbol -all;
@@ -45,6 +46,17 @@ class MarpaX::Languages::XML::Impl::Parser {
   has rc              => ( is => 'rwp', isa => Int,               default => 0 );
   has unicode_newline => ( is => 'ro',  isa => Bool,              default => false, trigger => 1 );
   has startSymbol     => ( is => 'ro',  isa => StartSymbol,       default => 'document' );
+  has lastLexemes      => ( is => 'rw',   isa => LastLexemes,       default => sub { return [] },
+                            handles_via => 'Array',
+                            handles => {
+                                        get_lastLexeme => 'get',
+                                        set_lastLexeme => 'set',
+                                       }
+                          );
+  has eof             => ( is => 'rw',  isa => Bool,              default => false, trigger => 1 );
+  has eolHandling     => ( is => 'rw',  isa => Bool,              default => false );
+  has canReduce       => ( is => 'rw',  isa => Bool,              default => false );
+  has io              => ( is => 'rwp', isa => IO );
 
   has _contexts       => ( is => 'rw',  isa => ArrayRef[Context], default => sub { [] }, 
                            handles_via => 'Array', handles => {
@@ -54,8 +66,6 @@ class MarpaX::Languages::XML::Impl::Parser {
                                                                get_context     => 'get'
                                                               }
                          );
-  has eof             => ( is => 'rw',  isa => Bool,              default => false, trigger => 1 );
-  has eolHandling     => ( is => 'rw',  isa => Bool,              default => false );
 
   has _unicode_newline_regexp => ( is => 'rw',  isa => RegexpRef,                          default => sub { return qr/\R/; }  );
   has _grammars               => ( is => 'rw',  isa => HashRef[Grammar],                   lazy => 1, builder => 1, handles_via => 'Hash', handles => { get_grammar => 'get' } );
@@ -93,7 +103,6 @@ class MarpaX::Languages::XML::Impl::Parser {
             document => {
                          completed => {
                                        ENCNAME_COMPLETED       => 'ENCNAME',
-                                       XMLDECL_START_COMPLETED => 'XMLDECL_START',
                                        XMLDECL_END_COMPLETED   => 'XMLDECL_END',
                                        VERSIONNUM_COMPLETED    => 'VERSIONNUM',
                                        STag_COMPLETED          => 'STag'
@@ -158,6 +167,7 @@ class MarpaX::Languages::XML::Impl::Parser {
     my $io               = MarpaX::Languages::XML::Impl::IO->new(source => $source);
     my $dispatcher       = MarpaX::Languages::XML::Impl::Dispatcher->new();
     my $namespaceSupport = $self->_namespaceSupport;
+    $self->_set_io($io);
     #
     # Add events framework. They are:
     # - WFC constraints (configurable)
@@ -187,7 +197,6 @@ class MarpaX::Languages::XML::Impl::Parser {
     #
     my $grammar = $self->get_grammar($startSymbol);
     my $context = MarpaX::Languages::XML::Impl::Context->new(
-                                                             io               => $io,
                                                              grammar          => $grammar,
                                                              namespaceSupport => $namespaceSupport,
                                                              endEventName     => $self->get_grammar_endEventName($startSymbol),
@@ -197,7 +206,7 @@ class MarpaX::Languages::XML::Impl::Parser {
     #
     # Make sure that context will be demolished
     #
-    ($io, $grammar, $namespaceSupport, $context) = ();
+    ($grammar, $namespaceSupport, $context) = ();
     #
     # Loop until there is no more context
     #
@@ -215,14 +224,16 @@ class MarpaX::Languages::XML::Impl::Parser {
   }
 
   method _reduce(Context $context --> Parser) {
-    my $io     = $context->io;
-    my $pos    = pos($MarpaX::Languages::XML::Impl::Parser::buffer);
-    my $length = length($MarpaX::Languages::XML::Impl::Parser::buffer);
+    if ($self->canReduce) {
+      my $io     = $self->io;
+      my $pos    = pos($MarpaX::Languages::XML::Impl::Parser::buffer);
+      my $length = length($MarpaX::Languages::XML::Impl::Parser::buffer);
 
-    if ($pos >= $length) {
-      $MarpaX::Languages::XML::Impl::Parser::buffer = '';
-    } else {
-      substr($MarpaX::Languages::XML::Impl::Parser::buffer, 0, $pos, '');
+      if ($pos >= $length) {
+        $MarpaX::Languages::XML::Impl::Parser::buffer = '';
+      } else {
+        substr($MarpaX::Languages::XML::Impl::Parser::buffer, 0, $pos, '');
+      }
     }
 
     return $self;
@@ -230,7 +241,7 @@ class MarpaX::Languages::XML::Impl::Parser {
 
   method read(Dispatcher $dispatcher, Context $context --> Parser) {
 
-    $context->io->read;
+    $self->io->read;
     $dispatcher->process('EOL', $self, $context) if ($self->eolHandling);
 
     return $self;
@@ -246,7 +257,7 @@ class MarpaX::Languages::XML::Impl::Parser {
     my $compiledGrammar                = $grammar->compiledGrammar;
     my $startSymbol                    = $grammar->startSymbol;
     my $recognizer                     = $context->recognizer;
-    my $io                             = $context->io;
+    my $io                             = $self->io;
     my $line                           = $context->line;
     my $column                         = $context->column;
     my $unicode_newline_regexp         = $self->_unicode_newline_regexp;
@@ -265,7 +276,18 @@ class MarpaX::Languages::XML::Impl::Parser {
     #
     # Infinite loop until user says to last or error
     #
-    my $resumeMode = ($context->immediateAction == IMMEDIATEACTION_RESUME);
+    my $resumeMode;
+    if ($context->immediateAction == IMMEDIATEACTION_RESUME) {
+      $resumeMode = true;
+    } elsif ($context->immediateAction == IMMEDIATEACTION_RESTART) {
+      #
+      # We reposition at the beginning of the buffer. This is happening ONLY
+      # when encname disagree with IO encoding guess. In this case we have not
+      # reached XMLDECL_END, so per def $self->canResume is false.
+      #
+      $pos                            = pos($MarpaX::Languages::XML::Impl::Parser::buffer) = 0;
+      $remaining                      = $length;
+    }
     $context->immediateAction(IMMEDIATEACTION_NONE);
 
     while (1) {
@@ -292,6 +314,9 @@ class MarpaX::Languages::XML::Impl::Parser {
           if ($immediateAction != IMMEDIATEACTION_NONE) {
             if ($immediateAction == IMMEDIATEACTION_PAUSE) {
               $self->_logger->tracef('[%d]%s IMMEDIATEACTION_PAUSE', $self->count_contexts, $startSymbol);
+              return $self;
+            } elsif ($immediateAction == IMMEDIATEACTION_RESTART) {
+              $self->_logger->tracef('[%d]%s IMMEDIATEACTION_RESTART', $self->count_contexts, $startSymbol);
               return $self;
             } elsif ($immediateAction == IMMEDIATEACTION_STOP) {
               $self->_logger->tracef('[%d]%s IMMEDIATEACTION_STOP', $self->count_contexts, $startSymbol);
@@ -461,7 +486,7 @@ class MarpaX::Languages::XML::Impl::Parser {
             #
             # Remember last data for this lexeme
             #
-            $context->set_lastLexeme($_, $data);
+            $self->set_lastLexeme($_, $data);
             #
             # Do the alternative
             #

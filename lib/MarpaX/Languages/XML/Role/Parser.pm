@@ -25,6 +25,11 @@ role MarpaX::Languages::XML::Role::Parser {
   requires 'read';
   requires 'eof';
   requires 'eolHandling';
+  requires 'canReduce';
+  requires 'lastLexemes';
+  requires 'get_lastLexeme';
+  requires 'set_lastLexeme';
+  requires 'io';
 }
 
 1;

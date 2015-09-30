@@ -58,7 +58,7 @@ class MarpaX::Languages::XML::Impl::Plugin::General::content_NULLED {
       if (! $parser->eof) {
         my $needed = $etag_start_length - $remaining;
         $self->_logger->tracef('%s Undecidable: need at least %d characters more', 'ETAG_START', $etag_start_length);
-        my $io = $context->io;
+        my $io = $parser->io;
         my $old_block_size_value = $io->block_size_value;
         if ($old_block_size_value != $needed) {
           $io->block_size($needed);

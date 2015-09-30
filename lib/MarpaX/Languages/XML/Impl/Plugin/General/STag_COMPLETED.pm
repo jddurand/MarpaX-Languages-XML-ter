@@ -29,7 +29,6 @@ class MarpaX::Languages::XML::Impl::Plugin::General::STag_COMPLETED {
     # Push content context in any case
     #
     my $newContext = MarpaX::Languages::XML::Impl::Context->new(
-                                                                io               => $context->io,
                                                                 grammar          => $parser->get_grammar('content'),
                                                                 endEventName     => $parser->get_grammar_endEventName('content'),
                                                                 namespaceSupport => $context->namespaceSupport,
