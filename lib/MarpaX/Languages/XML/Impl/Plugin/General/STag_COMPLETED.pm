@@ -25,7 +25,6 @@ class MarpaX::Languages::XML::Impl::Plugin::General::STag_COMPLETED {
                           );
 
   method N_STag_COMPLETED(Dispatcher $dispatcher, Parser $parser, Context $context --> PluggableConstant) {
-    $parser->_logger->tracef('STag_COMPLETED event, number of remaining context is %d', $parser->count_contexts);
     #
     # Push content context in any case
     #
@@ -35,13 +34,13 @@ class MarpaX::Languages::XML::Impl::Plugin::General::STag_COMPLETED {
                                                                 encoding         => $context->encoding,
                                                                 dispatcher       => $dispatcher,
                                                                 namespaceSupport => $context->namespaceSupport,
-                                                                endEventName     => $parser->get_grammar_endEventName('content')
+                                                                endEventName     => $parser->get_grammar_endEventName('content'),
+                                                                parentContext    => $context
                                                                );
     $parser->_push_context($newContext);
     #
     # We are pushing a nullable, this is why it is ok to say stop for a further resume
     #
-    $parser->_logger->tracef('STag_COMPLETED event: asking for a stop of %s', $context->grammar->startSymbol);
     $context->immediateAction('IMMEDIATEACTION_PAUSE');
 
     return EAT_CLIENT   # No ';' for fewer hops

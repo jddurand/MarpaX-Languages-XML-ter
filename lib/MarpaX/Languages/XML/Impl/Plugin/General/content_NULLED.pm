@@ -29,7 +29,6 @@ class MarpaX::Languages::XML::Impl::Plugin::General::content_NULLED {
   has _etag_start_regexp => ( is => 'rw', isa => RegexpRef, predicate => 1);
 
   method N_content_NULLED(Dispatcher $dispatcher, Parser $parser, Context $context --> PluggableConstant) {
-    $self->_logger->tracef('content_NULLED event, number of remaining context is %d', $parser->count_contexts);
     #
     # If the next characters do match ETAG_START then the content is over.
     # The only complication is because we are working in streaming mode
@@ -84,13 +83,11 @@ class MarpaX::Languages::XML::Impl::Plugin::General::content_NULLED {
       }
     }
     if ($match) {
-      $self->_logger->tracef('ETAG_START match: asking for a stop of %s', $context->grammar->startSymbol);
       $context->immediateAction('IMMEDIATEACTION_STOP');
       #
       # It is impossible to not have another context upper
       #
-      $self->_logger->tracef('ETAG_START match: asking for a resume of previous %s', $parser->get_context(-2)->grammar->startSymbol);
-      $parser->get_context(-2)->immediateAction('IMMEDIATEACTION_RESUME');
+      $context->parentContext->immediateAction('IMMEDIATEACTION_RESUME');
     }
 
     return EAT_CLIENT   # No ';' for fewer hops

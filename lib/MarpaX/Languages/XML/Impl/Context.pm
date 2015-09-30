@@ -6,6 +6,7 @@ use Moops;
 
 class MarpaX::Languages::XML::Impl::Context {
   use MarpaX::Languages::XML::Role::Context;
+  use MarpaX::Languages::XML::Type::Context -all;
   use MarpaX::Languages::XML::Type::Dispatcher -all;
   use MarpaX::Languages::XML::Type::Grammar -all;
   use MarpaX::Languages::XML::Type::IO -all;
@@ -39,6 +40,7 @@ class MarpaX::Languages::XML::Impl::Context {
                                        }
                           );
   has immediateAction => ( is => 'rw', isa => ImmediateAction, default => 'IMMEDIATEACTION_NONE' );
+  has parentContext   => ( is => 'rw', isa => Context|Undef, default => undef );
 
   method BUILD {
     $self->_logger->tracef('%s object construction', $self->grammar->startSymbol);
