@@ -10,6 +10,7 @@ class MarpaX::Languages::XML::Impl::Parser {
   use MarpaX::Languages::XML::Impl::Context;
   use MarpaX::Languages::XML::Impl::Dispatcher;
   use MarpaX::Languages::XML::Impl::Grammar;
+  use MarpaX::Languages::XML::Impl::ImmediateAction::Constant;
   use MarpaX::Languages::XML::Impl::IO;
   use MarpaX::Languages::XML::Impl::Encoding;
   use MarpaX::Languages::XML::Impl::PluginFactory;
@@ -18,7 +19,6 @@ class MarpaX::Languages::XML::Impl::Parser {
   use MarpaX::Languages::XML::Type::Dispatcher -all;
   use MarpaX::Languages::XML::Type::Encoding -all;
   use MarpaX::Languages::XML::Type::Grammar -all;
-  use MarpaX::Languages::XML::Type::ImmediateAction -all;
   use MarpaX::Languages::XML::Type::NamespaceSupport -all;
   use MarpaX::Languages::XML::Type::IO -all;
   use MarpaX::Languages::XML::Type::Parser -all;
@@ -266,8 +266,8 @@ class MarpaX::Languages::XML::Impl::Parser {
     #
     # Infinite loop until user says to last or error
     #
-    my $resumeMode = ($context->immediateAction eq 'IMMEDIATEACTION_RESUME');
-    $context->immediateAction('IMMEDIATEACTION_NONE');
+    my $resumeMode = ($context->immediateAction == IMMEDIATEACTION_RESUME);
+    $context->immediateAction(IMMEDIATEACTION_NONE);
 
     while (1) {
       my $canStop = false;
@@ -290,11 +290,11 @@ class MarpaX::Languages::XML::Impl::Parser {
           # Immediate action ?
           #
           my $immediateAction = $context->immediateAction;
-          if ($immediateAction ne 'IMMEDIATEACTION_NONE') {
-            if ($immediateAction eq 'IMMEDIATEACTION_PAUSE') {
+          if ($immediateAction != IMMEDIATEACTION_NONE) {
+            if ($immediateAction == IMMEDIATEACTION_PAUSE) {
               $self->_logger->tracef('[%d]%s IMMEDIATEACTION_PAUSE', $self->count_contexts, $startSymbol);
               return $self;
-            } elsif ($immediateAction eq 'IMMEDIATEACTION_STOP') {
+            } elsif ($immediateAction == IMMEDIATEACTION_STOP) {
               $self->_logger->tracef('[%d]%s IMMEDIATEACTION_STOP', $self->count_contexts, $startSymbol);
               $self->_pop_context;
               return $self;

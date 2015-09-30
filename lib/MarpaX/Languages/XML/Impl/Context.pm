@@ -5,6 +5,7 @@ use Moops;
 # ABSTRACT: Context implementation
 
 class MarpaX::Languages::XML::Impl::Context {
+  use MarpaX::Languages::XML::Impl::ImmediateAction::Constant;
   use MarpaX::Languages::XML::Role::Context;
   use MarpaX::Languages::XML::Type::Context -all;
   use MarpaX::Languages::XML::Type::Dispatcher -all;
@@ -17,7 +18,6 @@ class MarpaX::Languages::XML::Impl::Context {
   use MarpaX::Languages::XML::Type::NamespaceSupport -all;
   use MooX::HandlesVia;
   use Types::Common::Numeric -all;
-  use MooX::Role::Logger;
   use Throwable::Factory
     IOException    => undef
     ;
@@ -39,15 +39,18 @@ class MarpaX::Languages::XML::Impl::Context {
                                         set_lastLexeme => 'set',
                                        }
                           );
-  has immediateAction => ( is => 'rw', isa => ImmediateAction, default => 'IMMEDIATEACTION_NONE' );
+  has immediateAction => ( is => 'rw', isa => ImmediateAction, default => IMMEDIATEACTION_NONE );
   has parentContext   => ( is => 'rw', isa => Context|Undef, default => undef );
 
-  method BUILD {
-    $self->_logger->tracef('%s object construction', $self->grammar->startSymbol);
-  }
-
   method DEMOLISH {
-    $self->_logger->tracef('%s object destruction', $self->grammar->startSymbol);
+    my $parentContext = $self->parentContext;
+    if (Context->check($parentContext)) {
+      #
+      # Transfer line and column information into parent
+      #
+      $parentContext->line($self->line);
+      $parentContext->column($self->column);
+    }
   }
 
   method _trigger_io(IO $io --> Undef) {
@@ -109,7 +112,6 @@ class MarpaX::Languages::XML::Impl::Context {
   }
 
   with 'MarpaX::Languages::XML::Role::Context';
-  with 'MooX::Role::Logger';
 }
 
 1;

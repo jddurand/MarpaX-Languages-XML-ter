@@ -6,8 +6,8 @@ use Moops;
 
 class MarpaX::Languages::XML::Impl::Plugin::General::content_NULLED {
   use MarpaX::Languages::XML::Impl::Context;
+  use MarpaX::Languages::XML::Impl::ImmediateAction::Constant;
   use MarpaX::Languages::XML::Impl::Plugin;
-  use MarpaX::Languages::XML::Type::ImmediateAction -all;
   use MarpaX::Languages::XML::Type::PluggableConstant -all;
   use MarpaX::Languages::XML::Type::Context -all;
   use MarpaX::Languages::XML::Type::Dispatcher -all;
@@ -83,11 +83,11 @@ class MarpaX::Languages::XML::Impl::Plugin::General::content_NULLED {
       }
     }
     if ($match) {
-      $context->immediateAction('IMMEDIATEACTION_STOP');
+      $context->immediateAction(IMMEDIATEACTION_STOP);
       #
       # It is impossible to not have another context upper
       #
-      $context->parentContext->immediateAction('IMMEDIATEACTION_RESUME');
+      $context->parentContext->immediateAction(IMMEDIATEACTION_RESUME);
     }
 
     return EAT_CLIENT   # No ';' for fewer hops
