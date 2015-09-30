@@ -49,7 +49,7 @@ class MarpaX::Languages::XML::Impl::IO {
     my $old_block_size = $self->block_size_value();
     $self->block_size(1024) if ($old_block_size != 1024);
     $self->read;
-    IOException->throw('EOF when reading first bytes') if ($self->length <= 0);
+    IOException->throw('EOF when reading first bytes', source => $self->source) if ($self->length <= 0);
     #
     # The stream is supposed to be opened with the correct encoding, if any
     # If there was no guess from the BOM, default will be UTF-8. Nevertheless we
