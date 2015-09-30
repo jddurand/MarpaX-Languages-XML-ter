@@ -183,7 +183,15 @@ class MarpaX::Languages::XML::Impl::IO {
 
   method encoding(Str $encodingName --> IO) {
 
-    $self->_logger->tracef('Setting encoding "%s"', $encodingName);
+    if (uc($self->encodingName) ne uc($encodingName)){ # encoding name is not case sensitive
+      $self->_logger->tracef('New encoding layer %s disagree with previous layer %s: reopening the stream and resetting buffer', $encodingName, $self->encodingName);
+      $self->_open($self->source);
+      #
+      # Take care! pos() and buffer are back to zero
+      #
+      $self->clear;
+    }
+    $self->_logger->tracef('Setting encoding layer %s', $encodingName);
     $self->_io->encoding($encodingName);
     $self->_set_encodingName($encodingName);
 

@@ -36,8 +36,6 @@ class MarpaX::Languages::XML::Impl::Plugin::General::ENCNAME_COMPLETED {
     my $io = $parser->io;
     if (uc($encname) ne $io->encodingName) {
       $self->_logger->tracef('XML says encoding %s while IO is currently using %s', $encname, $parser->io->encodingName);
-      $io->pos(0);
-      $io->clear;
       $io->encoding($encname);
       $context->restartRecognizer;
       $context->immediateAction(IMMEDIATEACTION_RESTART);
