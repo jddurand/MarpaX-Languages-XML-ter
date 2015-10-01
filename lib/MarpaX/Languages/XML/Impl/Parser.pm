@@ -38,7 +38,7 @@ class MarpaX::Languages::XML::Impl::Parser {
 
   # AUTHORITY
 
-  has xmlVersion      => ( is => 'ro',  isa => XmlVersion,        required => 1 );
+  has xmlVersion      => ( is => 'rw',  isa => XmlVersion,        required => 1, trigger => 1 );
   has xmlns           => ( is => 'ro',  isa => Bool,              required => 1 );
   has vc              => ( is => 'ro',  isa => ArrayRef[Str],     required => 1, handles_via => 'Array', handles => { elements_vc => 'elements' } );
   has wfc             => ( is => 'ro',  isa => ArrayRef[Str],     required => 1, handles_via => 'Array', handles => { elements_wfc => 'elements' } );
@@ -63,15 +63,16 @@ class MarpaX::Languages::XML::Impl::Parser {
                                                                count_contexts  => 'count',
                                                                _push_context   => 'push',
                                                                _pop_context    => 'pop',
-                                                               get_context     => 'get'
+                                                               get_context     => 'get',
+                                                               set_context     => 'set'
                                                               }
                          );
 
   has _unicode_newline_regexp => ( is => 'rw',  isa => RegexpRef,                          default => sub { return qr/\R/; }  );
-  has _grammars               => ( is => 'rw',  isa => HashRef[Grammar],                   lazy => 1, builder => 1, handles_via => 'Hash', handles => { get_grammar => 'get' } );
-  has _grammars_events        => ( is => 'rw',  isa => HashRef[HashRef[HashRef[Str]]],     lazy => 1, builder => 1, handles_via => 'Hash', handles => { _get_grammar_events => 'get' } );
-  has _grammars_endEventName  => ( is => 'rw',  isa => HashRef[Str],                       lazy => 1, builder => 1, handles_via => 'Hash', handles => { get_grammar_endEventName => 'get' } );
-  has _namespaceSupport       => ( is => 'rw',  isa => NamespaceSupport,                   lazy => 1, builder => 1 );
+  has _grammars               => ( is => 'rw',  isa => HashRef[Grammar],                   lazy => 1, builder => 1, clearer => 1, handles_via => 'Hash', handles => { get_grammar => 'get' } );
+  has _grammars_events        => ( is => 'rw',  isa => HashRef[HashRef[HashRef[Str]]],     lazy => 1, builder => 1, clearer => 1, handles_via => 'Hash', handles => { _get_grammar_events => 'get' } );
+  has _grammars_endEventName  => ( is => 'rw',  isa => HashRef[Str],                       lazy => 1, builder => 1, clearer => 1, handles_via => 'Hash', handles => { get_grammar_endEventName => 'get' } );
+  has _namespaceSupport       => ( is => 'rw',  isa => NamespaceSupport,                   lazy => 1, builder => 1, clearer => 1 );
 
 
   method _trigger_eof(Bool $eof) {
@@ -93,6 +94,26 @@ class MarpaX::Languages::XML::Impl::Parser {
     $self->_logger->debugf('Popped %s context (%d -> %d)', $startSymbol, $count, $count - 1);
     return $rc;
   };
+
+  method _trigger_xmlVersion(XmlVersion $xmlVersion --> Undef) {
+    #
+    # Make sure all the grammar stuff will be recreated
+    # The sequence is:
+    # my $context = MarpaX::Languages::XML::Impl::Context->new(
+    #                                                          grammar          => $self->get_grammar($self->startSymbol),
+    #                                                          namespaceSupport => $self->_namespaceSupport,
+    #                                                          endEventName     => $self->get_grammar_endEventName($self->startSymbol),
+    #                                                          eolHandling      => $self->eolHandling
+    #                                                         );
+    # So we need to clear '_grammars', '_grammar_events', '_grammars_endEventName' and '_namespaceSupport'
+    #
+    $self->_clear_grammars;
+    $self->_clear_grammars_events;
+    $self->_clear_grammars_endEventName;
+    $self->_clear_namespaceSupport;
+    $self->eolHandling(false);
+    return;
+  }
 
   method _trigger_unicode_newline(Bool $unicode_newline --> Undef) {
     $self->_unicode_newline_regexp($unicode_newline ? qr/\R/ : qr/\n/);
@@ -150,7 +171,7 @@ class MarpaX::Languages::XML::Impl::Parser {
     return XML::NamespaceSupport->new(\%namespacesupport_options);
   }
 
-  method _safe_string(Str $string --> Str) {
+  method _safeString(Str $string --> Str) {
     #
     # Replace any character that would not be a known ASCII printable one with its hexadecimal value a-la-XML
     #
@@ -162,18 +183,22 @@ class MarpaX::Languages::XML::Impl::Parser {
 
   method parse(Str $source --> Int) {
     #
-    # Prepare variables that do not change for any context
+    # Prepare I/O
+    # We want to handle buffer direcly with no COW: the buffer scalar is localized.
+    # And have the block size as per the argument
     #
-    my $io               = MarpaX::Languages::XML::Impl::IO->new(source => $source);
-    my $dispatcher       = MarpaX::Languages::XML::Impl::Dispatcher->new();
-    my $namespaceSupport = $self->_namespaceSupport;
-    $self->_set_io($io);
+    local $MarpaX::Languages::XML::Impl::Parser::buffer = '';
+    $self->_set_io(MarpaX::Languages::XML::Impl::IO->new(source => $source));
+    $self->io->buffer(\$MarpaX::Languages::XML::Impl::Parser::buffer);
+    $self->io->block_size($self->blockSize);
     #
-    # Add events framework. They are:
+    # Prepare Events dispatching
+    # Events are:
     # - WFC constraints (configurable)
     # - VC constraints (configurable)
     # - other events (not configurable)
     #
+    my $dispatcher    = MarpaX::Languages::XML::Impl::Dispatcher->new();
     my $pluginFactory = MarpaX::Languages::XML::Impl::PluginFactory->new();
     $pluginFactory
       ->registerPlugins($self->xmlVersion, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::WFC',     $self->elements_wfc)
@@ -182,31 +207,15 @@ class MarpaX::Languages::XML::Impl::Parser {
       ->registerPlugins($self->xmlVersion, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::General', ':all')
       ;
     #
-    # We want to handle buffer direcly with no COW: the buffer scalar is localized.
-    # And have the block size as per the argument
+    # Push first context (I delibarately not use internal variables)
     #
-    local $MarpaX::Languages::XML::Impl::Parser::buffer = '';
-    $io->buffer(\$MarpaX::Languages::XML::Impl::Parser::buffer);
-    $io->block_size($self->blockSize);
-    #
-    # Start with the appropriate symbol
-    #
-    my $startSymbol = $self->startSymbol;
-    #
-    # Push first context
-    #
-    my $grammar = $self->get_grammar($startSymbol);
-    my $context = MarpaX::Languages::XML::Impl::Context->new(
-                                                             grammar          => $grammar,
-                                                             namespaceSupport => $namespaceSupport,
-                                                             endEventName     => $self->get_grammar_endEventName($startSymbol),
-                                                             eolHandling      => $self->eolHandling
-                                                            );
-    $self->_push_context($context);
-    #
-    # Make sure that context will be demolished
-    #
-    ($grammar, $namespaceSupport, $context) = ();
+    $self->_push_context(MarpaX::Languages::XML::Impl::Context->new(
+                                                                    grammar          => $self->get_grammar($self->startSymbol),
+                                                                    namespaceSupport => $self->_namespaceSupport,
+                                                                    endEventName     => $self->get_grammar_endEventName($self->startSymbol),
+                                                                    eolHandling      => $self->eolHandling
+                                                                   )
+                        );
     #
     # Loop until there is no more context
     #
@@ -481,7 +490,7 @@ class MarpaX::Languages::XML::Impl::Parser {
             $next_line   = $line;
             $next_column = $column + $max_length;
           }
-          $self->_logger->debugf('Match: %s: %s', {map { $compiledGrammar->symbol_name($_) => $length{$_} } keys %length}, $self->_safe_string($data));
+          $self->_logger->debugf('Match: %s: %s', {map { $compiledGrammar->symbol_name($_) => $length{$_} } keys %length}, $self->_safeString($data));
           foreach (keys %length) {
             #
             # Remember last data for this lexeme

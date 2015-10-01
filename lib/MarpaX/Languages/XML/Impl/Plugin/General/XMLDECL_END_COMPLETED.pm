@@ -5,7 +5,6 @@ use Moops;
 # ABSTRACT: XMLDECL_END_COMPLETED Grammar Event implementation
 
 class MarpaX::Languages::XML::Impl::Plugin::General::XMLDECL_END_COMPLETED {
-  use MarpaX::Languages::XML::Impl::Context;
   use MarpaX::Languages::XML::Impl::ImmediateAction::Constant;
   use MarpaX::Languages::XML::Impl::Plugin;
   use MarpaX::Languages::XML::Type::PluggableConstant -all;

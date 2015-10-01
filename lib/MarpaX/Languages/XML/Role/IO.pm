@@ -11,6 +11,7 @@ role MarpaX::Languages::XML::Role::IO {
   # AUTHORITY
 
   requires 'source';
+  requires 'reopen';
   requires 'block_size';
   requires 'block_size_value';
   requires 'binary';
