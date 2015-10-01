@@ -25,7 +25,7 @@ class MarpaX::Languages::XML::Impl::Parser {
   use MarpaX::Languages::XML::Type::SaxHandler -all;
   use MarpaX::Languages::XML::Type::StartSymbol -all;
   use MarpaX::Languages::XML::Type::XmlVersion -all;
-  use MarpaX::Languages::XML::Marpa::R2::Hooks;
+  use MooX::ClassAttribute;
   use MooX::HandlesVia;
   use MooX::Role::Logger;
   use MooX::Role::Pluggable::Constants;
@@ -66,6 +66,22 @@ class MarpaX::Languages::XML::Impl::Parser {
                                        exists_saxHandle => 'exists'
                                       }
                          );
+  #
+  # The very first read in _parse_generic() will use block_size.
+  # Nevertheless is this is done with the wrong encoding, we do not want to be polluted
+  # by perl saying he got an unmappable character.
+  # We try to avoid that asa much possible with the following:
+  # Any XML grammar is starting with, at most:
+  # <?xml version="1.0" encoding="1234567890123456789012345678901234567890" standalone="yes" ?>
+  # 12345678901234567890123456789012345678901234567890123456789012345678901234567890
+  #          1         2         3         4         5         6         7
+  #                                                                       ^
+  #                                                                      HERE
+  # We assume that the XML does use a IANA charset, as recommended by the spec. I.e. 40 characters max.
+  # This mean that a well-writen XML will have encoding information, if any, at character No 71 max
+  # (regardless of the encoding currently in use).
+  #
+  class_has _firstReadCharacterLength => ( is => 'ro', isa => PositiveInt, default => 71 );
 
   has _contexts       => ( is => 'rw',  isa => ArrayRef[Context], default => sub { [] }, 
                            handles_via => 'Array', handles => {
@@ -120,6 +136,7 @@ class MarpaX::Languages::XML::Impl::Parser {
     $self->_clear_grammars_endEventName;
     $self->clear_namespaceSupport;
     $self->eolHandling(false);
+    $self->canReduce(false);
     return;
   }
 
@@ -186,6 +203,23 @@ class MarpaX::Languages::XML::Impl::Parser {
     return $string;
   }
 
+  method _doEstimatedBestFirstRead(Dispatcher $dispatcher, Context $context--> Parser) {
+    my $needed = $self->_firstReadCharacterLength;
+    my $io = $self->io;
+
+    my $old_block_size_value = $io->block_size_value;
+    if ($old_block_size_value != $needed) {
+      $io->block_size($needed);
+    }
+    #
+    # Per def $pos is 0 here
+    #
+    $self->read($dispatcher, $context);
+    if ($old_block_size_value != $needed) {
+      $io->block_size($old_block_size_value);
+    }
+  }
+
   method parse(Str $source --> Int) {
     #
     # Prepare I/O
@@ -222,8 +256,11 @@ class MarpaX::Languages::XML::Impl::Parser {
                         );
     my $context = $self->get_context(0);
     #
-    # Note: having $context prevents the first first of them to be garbaged, re-used for end_document -;
+    # Do the first read to avoid as much as possible perl pollution about unmappable character
     #
+    $self->_doEstimatedBestFirstRead($dispatcher, $context);
+    #
+    # Note: having $context prevents the first first of them to be garbaged, re-used for end_document -;
     #
     # start_document and end_document are systematic, regardless of parsing failure or success
     #
@@ -252,17 +289,20 @@ class MarpaX::Languages::XML::Impl::Parser {
   }
 
   method _reduce(Context $context --> Parser) {
-    if ($self->canReduce) {
-      my $io     = $self->io;
-      my $pos    = pos($MarpaX::Languages::XML::Impl::Parser::buffer);
-      my $length = length($MarpaX::Languages::XML::Impl::Parser::buffer);
+    my $io     = $self->io;
+    my $pos    = pos($MarpaX::Languages::XML::Impl::Parser::buffer);
+    my $length = length($MarpaX::Languages::XML::Impl::Parser::buffer);
+    my $new_length;
 
-      if ($pos >= $length) {
-        $MarpaX::Languages::XML::Impl::Parser::buffer = '';
-      } else {
-        substr($MarpaX::Languages::XML::Impl::Parser::buffer, 0, $pos, '');
-      }
+    if ($pos >= $length) {
+      $MarpaX::Languages::XML::Impl::Parser::buffer = '';
+      $new_length = 0;
+    } else {
+      substr($MarpaX::Languages::XML::Impl::Parser::buffer, 0, $pos, '');
+      $new_length = $length - $pos;
     }
+
+    $self->_logger->tracef('[%d]%s Buffer length reduced to %d', $self->count_contexts, $context->grammar->startSymbol, $new_length);
 
     return $self;
   }
@@ -393,28 +433,29 @@ class MarpaX::Languages::XML::Impl::Parser {
           }
           my @undecidable = grep { $lexeme_minlength_by_symbol_ids[$_] > $remaining } @terminals_expected_to_symbol_ids;
           if (@undecidable && ! $self->eof) {
-            my $needed = max(map { $lexeme_minlength_by_symbol_ids[$_] } @undecidable) - $remaining;
+
+            my $wanted = max(map { $lexeme_minlength_by_symbol_ids[$_] } @undecidable);
+            my $needed = $wanted  - $remaining;
             $self->_logger->tracef('[%d]%s Undecidable: need at least %d characters more', $self->count_contexts, $startSymbol, $needed);
-            my $old_block_size_value = $io->block_size_value;
-            if ($old_block_size_value != $needed) {
-              $io->block_size($needed);
+            if ($self->canReduce) {
+              $self->_reduce($context)->read($dispatcher, $context);
+              $pos = pos($MarpaX::Languages::XML::Impl::Parser::buffer) = 0;
+            } else {
+              $self->read($dispatcher, $context);
+              pos($MarpaX::Languages::XML::Impl::Parser::buffer) = $pos;
             }
-            $self->read($dispatcher, $context);
-            if ($old_block_size_value != $needed) {
-              $io->block_size($old_block_size_value);
-            }
-            pos($MarpaX::Languages::XML::Impl::Parser::buffer) = $pos;
-            my $new_length = length($MarpaX::Languages::XML::Impl::Parser::buffer);
-            if ($new_length > $length) {
+            $length = length($MarpaX::Languages::XML::Impl::Parser::buffer);
+            my $new_remaining = $length - $pos;
+            if ($new_remaining > $remaining) {
               #
               # Something was read
               #
-              $length = $new_length;
-              $remaining = $length - $pos;
-              next;
+              $remaining = $new_remaining;
+              last;
             } else {
               $self->eof(true);
             }
+
           }
         }
         my $terminals_expected_again = 0;
@@ -432,18 +473,23 @@ class MarpaX::Languages::XML::Impl::Parser {
             # Match reaches end of buffer ?
             #
             if (($length_matched_data >= $remaining) && (! $self->eof)) { # Match up to the end of buffer is avoided as much as possible
-              $self->_reduce($context)->read($dispatcher, $context);
-              $pos = pos($MarpaX::Languages::XML::Impl::Parser::buffer) = 0;
+              if ($self->canReduce) {
+                $self->_reduce($context)->read($dispatcher, $context);
+                $pos = pos($MarpaX::Languages::XML::Impl::Parser::buffer) = 0;
+              } else {
+                $self->read($dispatcher, $context);
+                pos($MarpaX::Languages::XML::Impl::Parser::buffer) = $pos;
+              }
               $length = length($MarpaX::Languages::XML::Impl::Parser::buffer);
-              if ($length > $remaining) {
+              my $new_remaining = $length - $pos;
+              if ($new_remaining > $remaining) {
                 #
                 # Something was read
                 #
-                $remaining = $length;
+                $remaining = $new_remaining;
                 $terminals_expected_again = 1;
                 last;
               } else {
-                $remaining = $length;
                 $self->eof(true);
               }
             }

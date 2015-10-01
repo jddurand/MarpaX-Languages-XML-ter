@@ -26,6 +26,7 @@ class MarpaX::Languages::XML::Impl::IO {
 
   has _io               => ( is => 'rw',  isa => InstanceOf['IO::All'] );
   has _block_size_value => ( is => 'rw',  isa => PositiveInt, default => 1024 );
+  has _buffer           => ( is => 'rw',  isa => ScalarRef, predicate => 1 );
 
   method _trigger_source(Str $source --> IO) {
     $self->_open($source)->_guessEncoding;
@@ -89,6 +90,14 @@ class MarpaX::Languages::XML::Impl::IO {
     $self->_logger->tracef('Opening %s %s', $source, \@args);
     my $io = io($source)->autoclose(0)->open(@args);
     $self->_io($io);
+    #
+    # Restore user buffer if there was one
+    #
+    $self->buffer($self->_buffer) if ($self->_has_buffer);
+    #
+    # And block-size
+    #
+    $self->block_size($self->_block_size_value);
 
     return $self;
   }
@@ -135,6 +144,7 @@ class MarpaX::Languages::XML::Impl::IO {
   method buffer(@args --> ScalarRef) {
 
     $self->_logger->tracef('%s buffer', @args ? 'Setting' : 'Getting');
+    $self->_buffer($args[0]) if (@args);
     return $self->_io->buffer(@args);
   }
 

@@ -67,6 +67,10 @@ class MarpaX::Languages::XML::Impl::Plugin::General::content_NULLED {
         if ($old_block_size_value != $needed) {
           $io->block_size($old_block_size_value);
         }
+        #
+        # The parser will not know about the new length, nevertheless we should at least
+        # not perturb the position
+        #
         pos($MarpaX::Languages::XML::Impl::Parser::buffer) = $pos;
         my $new_length = length($MarpaX::Languages::XML::Impl::Parser::buffer);
         if ($new_length > $length) {

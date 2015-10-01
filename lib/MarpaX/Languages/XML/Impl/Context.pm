@@ -5,7 +5,9 @@ use Moops;
 # ABSTRACT: Context implementation
 
 class MarpaX::Languages::XML::Impl::Context {
+  use Marpa::R2;
   use MarpaX::Languages::XML::Impl::ImmediateAction::Constant;
+  use MarpaX::Languages::XML::Marpa::R2::Hooks;
   use MarpaX::Languages::XML::Role::Context;
   use MarpaX::Languages::XML::Type::Context -all;
   use MarpaX::Languages::XML::Type::Grammar -all;
