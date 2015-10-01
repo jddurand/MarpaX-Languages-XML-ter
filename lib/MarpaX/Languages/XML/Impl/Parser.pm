@@ -28,6 +28,7 @@ class MarpaX::Languages::XML::Impl::Parser {
   use MooX::HandlesVia;
   use MooX::Role::Logger;
   use MooX::Role::Pluggable::Constants;
+  use POSIX qw/EXIT_SUCCESS EXIT_FAILURE/;
 
   use Throwable::Factory
     ParseException    => undef
@@ -43,7 +44,7 @@ class MarpaX::Languages::XML::Impl::Parser {
   has vc              => ( is => 'ro',  isa => ArrayRef[Str],     required => 1, handles_via => 'Array', handles => { elements_vc => 'elements' } );
   has wfc             => ( is => 'ro',  isa => ArrayRef[Str],     required => 1, handles_via => 'Array', handles => { elements_wfc => 'elements' } );
   has blockSize       => ( is => 'ro',  isa => PositiveOrZeroInt, default => 1024 * 1024 );
-  has rc              => ( is => 'rwp', isa => Int,               default => 0 );
+  has rc              => ( is => 'rwp', isa => Int,               default => EXIT_SUCCESS );
   has unicode_newline => ( is => 'ro',  isa => Bool,              default => false, trigger => 1 );
   has startSymbol     => ( is => 'ro',  isa => StartSymbol,       default => 'document' );
   has lastLexemes      => ( is => 'rw',   isa => LastLexemes,       default => sub { return [] },
@@ -209,23 +210,37 @@ class MarpaX::Languages::XML::Impl::Parser {
     #
     # Push first context (I delibarately not use internal variables)
     #
-    $self->_push_context(MarpaX::Languages::XML::Impl::Context->new(
-                                                                    grammar          => $self->get_grammar($self->startSymbol),
-                                                                    namespaceSupport => $self->_namespaceSupport,
-                                                                    endEventName     => $self->get_grammar_endEventName($self->startSymbol),
-                                                                    eolHandling      => $self->eolHandling
-                                                                   )
-                        );
+    my $context = $self->_push_context(MarpaX::Languages::XML::Impl::Context->new(
+                                                                                  grammar          => $self->get_grammar($self->startSymbol),
+                                                                                  namespaceSupport => $self->_namespaceSupport,
+                                                                                  endEventName     => $self->get_grammar_endEventName($self->startSymbol),
+                                                                                  eolHandling      => $self->eolHandling
+                                                                                 )
+                                      );
     #
-    # Loop until there is no more context
+    # Note: having $context prevents the first first of them to be garbaged, re-used for end_document -;
     #
-    do {
-      $self->_parse_generic($dispatcher);
+    #
+    # start_document and end_document are systematic, regardless of parsing failure or success
+    #
+    $dispatcher->notify('start_document', $self, $context);
+    try {
       #
-      # The pop is done eventually inside _parse_generic()
+      # Loop until there is no more context
       #
-      $self->_logger->tracef('Number of remaining contexts: %d', $self->count_contexts);
-    } while ($self->count_contexts);
+      do {
+        $self->_parse_generic($dispatcher);
+        #
+        # The pop is done eventually inside _parse_generic()
+        #
+        $self->_logger->tracef('Number of remaining contexts: %d', $self->count_contexts);
+      } while ($self->count_contexts);
+    } catch {
+      $self->_logger->errorf($_);
+      $self->rc(EXIT_FAILURE);
+      return;
+    };
+    $dispatcher->notify('end_document', $self, $context);
     #
     # Return code eventually under SAX handler control
     #
