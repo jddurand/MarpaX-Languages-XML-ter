@@ -56,8 +56,7 @@ class MarpaX::Languages::XML::Impl::Parser {
                                        }
                           );
   has eof             => ( is => 'rw',  isa => Bool,              default => false, trigger => 1 );
-  has eolHandling     => ( is => 'rw',  isa => Bool,              default => false );
-  has canReduce       => ( is => 'rw',  isa => Bool,              default => false );
+  has inDecl          => ( is => 'rw',  isa => Bool,              default => true );
   has io              => ( is => 'rwp', isa => IO );
   has saxHandler      => ( is => 'ro',  isa => SaxHandler,        default => sub { {} },
                            handles_via => 'Hash',
@@ -127,7 +126,7 @@ class MarpaX::Languages::XML::Impl::Parser {
     # my $context = MarpaX::Languages::XML::Impl::Context->new(
     #                                                          grammar          => $self->get_grammar($self->startSymbol),
     #                                                          endEventName     => $self->get_grammar_endEventName($self->startSymbol),
-    #                                                          eolHandling      => $self->eolHandling
+    #                                                          inDecl           => $self->inDecl
     #                                                         );
     # So we need to clear '_grammars', '_grammar_events', '_grammars_endEventName'
     #
@@ -135,8 +134,7 @@ class MarpaX::Languages::XML::Impl::Parser {
     $self->_clear_grammars_events;
     $self->_clear_grammars_endEventName;
     $self->clear_namespaceSupport;
-    $self->eolHandling(false);
-    $self->canReduce(false);
+    $self->inDecl(true);
     return;
   }
 
@@ -251,7 +249,7 @@ class MarpaX::Languages::XML::Impl::Parser {
     $self->_push_context(MarpaX::Languages::XML::Impl::Context->new(
                                                                     grammar          => $self->get_grammar($self->startSymbol),
                                                                     endEventName     => $self->get_grammar_endEventName($self->startSymbol),
-                                                                    eolHandling      => $self->eolHandling
+                                                                    inDecl           => $self->inDecl
                                                                    )
                         );
     my $context = $self->get_context(0);
@@ -297,12 +295,12 @@ class MarpaX::Languages::XML::Impl::Parser {
     if ($pos >= $length) {
       $MarpaX::Languages::XML::Impl::Parser::buffer = '';
       $new_length = 0;
-    } else {
+      $self->_logger->tracef('[%d]%s Buffer length reduced to %d', $self->count_contexts, $context->grammar->startSymbol, $new_length);
+    } elsif ($pos > 0) {
       substr($MarpaX::Languages::XML::Impl::Parser::buffer, 0, $pos, '');
       $new_length = $length - $pos;
+      $self->_logger->tracef('[%d]%s Buffer length reduced to %d', $self->count_contexts, $context->grammar->startSymbol, $new_length);
     }
-
-    $self->_logger->tracef('[%d]%s Buffer length reduced to %d', $self->count_contexts, $context->grammar->startSymbol, $new_length);
 
     return $self;
   }
@@ -310,7 +308,7 @@ class MarpaX::Languages::XML::Impl::Parser {
   method read(Dispatcher $dispatcher, Context $context --> Parser) {
 
     $self->io->read;
-    $dispatcher->process('EOL', $self, $context) if ($self->eolHandling);
+    $dispatcher->process('EOL', $self, $context);
 
     return $self;
   }
@@ -351,7 +349,7 @@ class MarpaX::Languages::XML::Impl::Parser {
       #
       # We reposition at the beginning of the buffer. This is happening ONLY
       # when encname disagree with IO encoding guess. In this case we have not
-      # reached XMLDECL_END, so per def $self->canResume is false.
+      # reached XMLDECL_END, so per def $self->inDecl is still true.
       #
       $pos                            = pos($MarpaX::Languages::XML::Impl::Parser::buffer) = 0;
       $remaining                      = $length;
@@ -446,7 +444,7 @@ class MarpaX::Languages::XML::Impl::Parser {
             my $wanted = max(map { $lexeme_minlength_by_symbol_ids[$_] } @undecidable);
             my $needed = $wanted  - $remaining;
             $self->_logger->tracef('[%d]%s Undecidable: need at least %d characters more', $self->count_contexts, $startSymbol, $needed);
-            if ($self->canReduce) {
+            if (! $self->inDecl) {
               $self->_reduce($context)->read($dispatcher, $context);
               $pos = pos($MarpaX::Languages::XML::Impl::Parser::buffer) = 0;
             } else {
@@ -482,7 +480,7 @@ class MarpaX::Languages::XML::Impl::Parser {
             # Match reaches end of buffer ?
             #
             if (($length_matched_data >= $remaining) && (! $self->eof)) { # Match up to the end of buffer is avoided as much as possible
-              if ($self->canReduce) {
+              if (! $self->inDecl) {
                 $self->_reduce($context)->read($dispatcher, $context);
                 $pos = pos($MarpaX::Languages::XML::Impl::Parser::buffer) = 0;
               } else {

@@ -16,6 +16,10 @@ class MarpaX::Languages::XML::Impl::Plugin::General::content_NULLED {
   use MooX::Role::Pluggable::Constants;
   use Types::Common::Numeric -all;
 
+  our $_ETAG_START = qr{\G</}p;
+  our $_ETAG_START_LENGTH = 2;
+
+
   extends qw/MarpaX::Languages::XML::Impl::Plugin/;
 
   has '+subscriptions' => (default => sub { return
@@ -25,38 +29,26 @@ class MarpaX::Languages::XML::Impl::Plugin::General::content_NULLED {
                                           }
                           );
 
-  has _etag_start_length => ( is => 'rw', isa => PositiveOrZeroInt, predicate => 1);
-  has _etag_start_regexp => ( is => 'rw', isa => RegexpRef, predicate => 1);
-
   method N_content_NULLED(Dispatcher $dispatcher, Parser $parser, Context $context --> PluggableConstant) {
     #
     # If the next characters do match ETAG_START then the content is over.
-    # The only complication is because we are working in streaming mode
+    # The only complication is because we are working in streaming mode.
+    # Regardless of the XML version, _ETAG_START is always '</', i.e. two characters,
+    # its regexp is always 
     #
     my $pos       = pos($MarpaX::Languages::XML::Impl::Parser::buffer);
     my $length    = length($MarpaX::Languages::XML::Impl::Parser::buffer);
     my $remaining = $length - $pos;
-    my $etag_start_length;
-    if (! $self->_has_etag_start_length) {
-      $etag_start_length = $self->_etag_start_length($context->grammar->get_lexemesMinlength('_ETAG_START'));
-    } else {
-      $etag_start_length = $self->_etag_start_length;
-    }
-    my $etag_start_regexp;
-    if (! $self->_has_etag_start_regexp) {
-      $etag_start_regexp = $self->_etag_start_regexp($context->grammar->get_lexemesRegexp('_ETAG_START'));
-    } else {
-      $etag_start_regexp = $self->_etag_start_regexp;
-    }
     my $match;
-    if ($etag_start_length <= $remaining ) {
+    if ($_ETAG_START_LENGTH <= $remaining ) {
       #
       # We can safely say if it matches or not
       #
-      $match = ($MarpaX::Languages::XML::Impl::Parser::buffer =~ $etag_start_regexp);
+      $match = ($MarpaX::Languages::XML::Impl::Parser::buffer =~ $_ETAG_START);
+      # print STDERR substr($MarpaX::Languages::XML::Impl::Parser::buffer, $pos, 2) . " =~ $_ETAG_START ? " . ($match ? "yes" : "no") ."\n";
     } else {
       if (! $parser->eof) {
-        my $needed = $etag_start_length - $remaining;
+        my $needed = $_ETAG_START_LENGTH - $remaining;
         $self->_logger->tracef('%s Undecidable: need at least %d characters more', 'ETAG_START', $needed);
         my $io = $parser->io;
         my $old_block_size_value = $io->block_size_value;
@@ -67,19 +59,21 @@ class MarpaX::Languages::XML::Impl::Plugin::General::content_NULLED {
         if ($old_block_size_value != $needed) {
           $io->block_size($old_block_size_value);
         }
-        #
-        # The parser will not know about the new length, nevertheless we should at least
-        # not perturb the position
-        #
         pos($MarpaX::Languages::XML::Impl::Parser::buffer) = $pos;
         my $new_length = length($MarpaX::Languages::XML::Impl::Parser::buffer);
         if ($new_length > $length) {
           #
           # Something was read
           #
-          $match = ($MarpaX::Languages::XML::Impl::Parser::buffer =~ $etag_start_regexp);
+          $match = ($MarpaX::Languages::XML::Impl::Parser::buffer =~ $_ETAG_START);
+          # print STDERR substr($MarpaX::Languages::XML::Impl::Parser::buffer, $pos, 2) . " =~ $_ETAG_START ? " . ($match ? "yes" : "no") ."\n";
+          #
+          # The parser will not know that we modified the input:
+          # Restore original string and original position
+          substr($MarpaX::Languages::XML::Impl::Parser::buffer, $length, $new_length - $length, '');
+          pos($MarpaX::Languages::XML::Impl::Parser::buffer) = $pos;
         } else {
-          $self->eof(true);
+          $parser->eof(true);
           $match = false;
         }
       } else {
