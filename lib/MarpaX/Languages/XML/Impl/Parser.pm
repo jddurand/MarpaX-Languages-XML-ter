@@ -81,7 +81,7 @@ class MarpaX::Languages::XML::Impl::Parser {
   has _grammars               => ( is => 'rw',  isa => HashRef[Grammar],                   lazy => 1, builder => 1, clearer => 1, handles_via => 'Hash', handles => { get_grammar => 'get' } );
   has _grammars_events        => ( is => 'rw',  isa => HashRef[HashRef[HashRef[Str]]],     lazy => 1, builder => 1, clearer => 1, handles_via => 'Hash', handles => { _get_grammar_events => 'get' } );
   has _grammars_endEventName  => ( is => 'rw',  isa => HashRef[Str],                       lazy => 1, builder => 1, clearer => 1, handles_via => 'Hash', handles => { get_grammar_endEventName => 'get' } );
-  has _namespaceSupport       => ( is => 'rw',  isa => NamespaceSupport,                   lazy => 1, builder => 1, clearer => 1 );
+  has namespaceSupport        => ( is => 'rw',  isa => NamespaceSupport,                   lazy => 1, builder => 1, clearer => 1 );
 
 
   method _trigger_eof(Bool $eof) {
@@ -110,16 +110,15 @@ class MarpaX::Languages::XML::Impl::Parser {
     # The sequence is:
     # my $context = MarpaX::Languages::XML::Impl::Context->new(
     #                                                          grammar          => $self->get_grammar($self->startSymbol),
-    #                                                          namespaceSupport => $self->_namespaceSupport,
     #                                                          endEventName     => $self->get_grammar_endEventName($self->startSymbol),
     #                                                          eolHandling      => $self->eolHandling
     #                                                         );
-    # So we need to clear '_grammars', '_grammar_events', '_grammars_endEventName' and '_namespaceSupport'
+    # So we need to clear '_grammars', '_grammar_events', '_grammars_endEventName'
     #
     $self->_clear_grammars;
     $self->_clear_grammars_events;
     $self->_clear_grammars_endEventName;
-    $self->_clear_namespaceSupport;
+    $self->clear_namespaceSupport;
     $self->eolHandling(false);
     return;
   }
@@ -217,7 +216,6 @@ class MarpaX::Languages::XML::Impl::Parser {
     #
     $self->_push_context(MarpaX::Languages::XML::Impl::Context->new(
                                                                     grammar          => $self->get_grammar($self->startSymbol),
-                                                                    namespaceSupport => $self->_namespaceSupport,
                                                                     endEventName     => $self->get_grammar_endEventName($self->startSymbol),
                                                                     eolHandling      => $self->eolHandling
                                                                    )

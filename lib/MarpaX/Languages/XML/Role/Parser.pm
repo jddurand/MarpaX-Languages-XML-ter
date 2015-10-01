@@ -34,6 +34,8 @@ role MarpaX::Languages::XML::Role::Parser {
   requires 'saxHandler';
   requires 'get_saxHandle';
   requires 'exists_saxHandle';
+  requires 'namespaceSupport';
+
 }
 
 1;

@@ -30,7 +30,6 @@ class MarpaX::Languages::XML::Impl::Plugin::General::STag_COMPLETED {
     my $newContext = MarpaX::Languages::XML::Impl::Context->new(
                                                                 grammar          => $parser->get_grammar('content'),
                                                                 endEventName     => $parser->get_grammar_endEventName('content'),
-                                                                namespaceSupport => $context->namespaceSupport,
                                                                 line             => $context->line,
                                                                 column           => $context->column,
                                                                 parentContext    => $context,

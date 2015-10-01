@@ -43,7 +43,6 @@ class MarpaX::Languages::XML::Impl::Plugin::General::VERSIONNUM_COMPLETED {
                            MarpaX::Languages::XML::Impl::Context->new(
                                                                       grammar          => $parser->get_grammar($context->grammar->startSymbol),
                                                                       endEventName     => $parser->get_grammar_endEventName($context->grammar->startSymbol),
-                                                                      namespaceSupport => $parser->_namespaceSupport,
                                                                       immediateAction  => IMMEDIATEACTION_RESTART
                                                                      )
                           );
