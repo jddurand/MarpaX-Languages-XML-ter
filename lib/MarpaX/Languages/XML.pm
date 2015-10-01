@@ -166,13 +166,13 @@ class MarpaX::Languages::XML {
                  format => 's@',
                  autosplit => ',',
                  short => 's',
-                 doc => q{Assign a default SAX Handler that will just log to the INFO loglevel their argument(s). Use comma \",\" to separate multiple values. Default is an empty list. For example: --sax start_document,start_element,end_element,end_document. If you give ":all", all poossible handlers will be activated.}
+                 doc => q{Assign a default SAX Handler that will just log to the INFO loglevel their argument(s). Use comma \",\" to separate multiple values. Default is an empty list. For example: --sax start_document,start_element,end_element,end_document. If you give ":all", all possible handlers will be activated.}
                 );
 
   method _start_document(--> SaxHandlerReturnCode) { $self->_logger->infof('%s%s', 'start_document', \@_); return EXIT_SUCCESS; }
-  method _start_element (--> SaxHandlerReturnCode) { $self->_logger->infof('%s%s', 'start_element', \@_);  return EXIT_SUCCESS; }
-  method _end_element   (--> SaxHandlerReturnCode) { $self->_logger->infof('%s%s', 'end_element', \@_);    return EXIT_SUCCESS; }
-  method _end_document  (--> SaxHandlerReturnCode) { $self->_logger->infof('%s%s', 'end_document', \@_);   return EXIT_SUCCESS; }
+  method _start_element (--> SaxHandlerReturnCode) { $self->_logger->infof('%s%s', 'start_element',  \@_); return EXIT_SUCCESS; }
+  method _end_element   (--> SaxHandlerReturnCode) { $self->_logger->infof('%s%s', 'end_element',    \@_); return EXIT_SUCCESS; }
+  method _end_document  (--> SaxHandlerReturnCode) { $self->_logger->infof('%s%s', 'end_document',   \@_); return EXIT_SUCCESS; }
 
   has saxHandler => ( is => 'ro',
                       isa => SaxHandler,
