@@ -44,7 +44,7 @@ class MarpaX::Languages::XML {
                                                      blockSize       => $self->blocksize,
                                                      unicode_newline => $self->unicode_newline,
                                                      startSymbol     => $self->start,
-                                                     saxHandler       => $self->saxHandler);
+                                                     saxHandler      => $self->saxHandler);
   }
   # ---------------------------------------------------------------------------
   option wfc => (
@@ -176,11 +176,11 @@ class MarpaX::Languages::XML {
 
   has saxHandler => ( is => 'ro',
                       isa => SaxHandler,
-                      default => sub { {} },
                       builder => 1
                     );
 
   method _build_saxHandler( --> SaxHandler) {
+    my %saxHandler = ();
     my @elements = $self->_elements_sax;
     if (grep {$_ eq ':all'} @elements) {
       @elements =  qw/start_document
@@ -189,12 +189,13 @@ class MarpaX::Languages::XML {
                       end_document/;
     }
     foreach (@elements) {
-         if ($_ eq 'start_document') { $self->_set_saxHandle($_, \&_start_document); }
-      elsif ($_ eq 'start_element')  { $self->_set_saxHandle($_, \&_start_element); }
-      elsif ($_ eq 'end_element')    { $self->_set_saxHandle($_, \&_end_element); }
-      elsif ($_ eq 'end_document')   { $self->_set_saxHandle($_, \&_end_document); }
+         if ($_ eq 'start_document') { $saxHandler{$_} = \&_start_document; }
+      elsif ($_ eq 'start_element')  { $saxHandler{$_} = \&_start_element;  }
+      elsif ($_ eq 'end_element')    { $saxHandler{$_} = \&_end_element;    }
+      elsif ($_ eq 'end_document')   { $saxHandler{$_} = \&_end_document;   }
       else  { $self->_logger->warnf('Unsupported SAX event %s', $_); }
     }
+    return \%saxHandler;
   }
 
   with 'MooX::Role::Logger';

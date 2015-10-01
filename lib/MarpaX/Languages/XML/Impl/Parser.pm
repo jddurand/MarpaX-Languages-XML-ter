@@ -59,7 +59,13 @@ class MarpaX::Languages::XML::Impl::Parser {
   has eolHandling     => ( is => 'rw',  isa => Bool,              default => false );
   has canReduce       => ( is => 'rw',  isa => Bool,              default => false );
   has io              => ( is => 'rwp', isa => IO );
-  has saxHandler      => ( is => 'ro',  isa => SaxHandler,        default => sub { {} } );
+  has saxHandler      => ( is => 'ro',  isa => SaxHandler,        default => sub { {} },
+                           handles_via => 'Hash',
+                           handles => {
+                                       get_saxHandle => 'get',
+                                       exists_saxHandle => 'exists'
+                                      }
+                         );
 
   has _contexts       => ( is => 'rw',  isa => ArrayRef[Context], default => sub { [] }, 
                            handles_via => 'Array', handles => {
@@ -209,13 +215,14 @@ class MarpaX::Languages::XML::Impl::Parser {
     #
     # Push first context (I delibarately not use internal variables)
     #
-    my $context = $self->_push_context(MarpaX::Languages::XML::Impl::Context->new(
-                                                                                  grammar          => $self->get_grammar($self->startSymbol),
-                                                                                  namespaceSupport => $self->_namespaceSupport,
-                                                                                  endEventName     => $self->get_grammar_endEventName($self->startSymbol),
-                                                                                  eolHandling      => $self->eolHandling
-                                                                                 )
-                                      );
+    $self->_push_context(MarpaX::Languages::XML::Impl::Context->new(
+                                                                    grammar          => $self->get_grammar($self->startSymbol),
+                                                                    namespaceSupport => $self->_namespaceSupport,
+                                                                    endEventName     => $self->get_grammar_endEventName($self->startSymbol),
+                                                                    eolHandling      => $self->eolHandling
+                                                                   )
+                        );
+    my $context = $self->get_context(0);
     #
     # Note: having $context prevents the first first of them to be garbaged, re-used for end_document -;
     #

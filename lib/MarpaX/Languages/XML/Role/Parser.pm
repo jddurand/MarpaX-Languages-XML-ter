@@ -31,6 +31,9 @@ role MarpaX::Languages::XML::Role::Parser {
   requires 'get_lastLexeme';
   requires 'set_lastLexeme';
   requires 'io';
+  requires 'saxHandler';
+  requires 'get_saxHandle';
+  requires 'exists_saxHandle';
 }
 
 1;
