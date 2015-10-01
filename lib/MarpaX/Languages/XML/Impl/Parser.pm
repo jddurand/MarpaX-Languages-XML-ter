@@ -372,7 +372,16 @@ class MarpaX::Languages::XML::Impl::Parser {
           #
           $canStop = true if ($_ eq $endEventName);
           #
-          # Dispatch events
+          # Dispatch events. It is VERY important to notice that IF
+          # a plugin modifies the buffer, the parser will NOT know
+          # about it. It is supported that the plugin can EXTEND the
+          # buffer (provided then that the position remains the same).
+          # No other buffer modification is supported.
+          # This is exactly for this reason that the test on lexeme's
+          # matched length is:
+          # if (($length_matched_data >= $remaining) && (! $self->eof))
+          # and not:
+          # if (($length_matched_data == $remaining) && (! $self->eof))
           #
           $dispatcher->notify($_, $self, $context);
           #
