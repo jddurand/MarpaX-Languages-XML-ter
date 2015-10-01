@@ -9,9 +9,14 @@ class MarpaX::Languages::XML {
   use MarpaX::Languages::XML::Impl::Parser;
   use MarpaX::Languages::XML::Impl::PluginFactory;
   use MarpaX::Languages::XML::Type::Loglevel -all;
+  use MarpaX::Languages::XML::Type::SaxHandler -all;
+  use MarpaX::Languages::XML::Type::SaxHandlerReturnCode -all;
   use MarpaX::Languages::XML::Type::XmlVersion -all;
   use MarpaX::Languages::XML::Type::StartSymbol -all;
-  use MooX::Options protect_argv => 0;;
+  use MooX::HandlesVia;
+  use MooX::Options protect_argv => 0;
+  use MooX::Role::Logger;
+  use POSIX qw/EXIT_SUCCESS EXIT_FAILURE/;
   use Types::Common::Numeric -all;
 
   method _pluginsToDoc(ClassName $class: Str $baseClass, Str $pluginName) {
@@ -38,7 +43,8 @@ class MarpaX::Languages::XML {
                                                      vc              => $self->vc,
                                                      blockSize       => $self->blocksize,
                                                      unicode_newline => $self->unicode_newline,
-                                                     startSymbol     => $self->start);
+                                                     startSymbol     => $self->start,
+                                                     saxHandler       => $self->saxHandler);
   }
   # ---------------------------------------------------------------------------
   option wfc => (
@@ -52,7 +58,7 @@ class MarpaX::Languages::XML {
                  autosplit => ',',
                  short => 'w',
                  doc =>
-                 "Well-Formed constraints. Repeatable option. Default is \":all\". Supported values are:\n"
+                 "Well-Formed constraints. Use comma \",\" to separate multiple values. Default is \":all\". Supported values are:\n"
                  . join(",\n", map
                         {"\t\t$_" . __PACKAGE__->_pluginsToDoc('MarpaX::Languages::XML::Impl::Plugin::WFC', $_)}
                         MarpaX::Languages::XML::Impl::PluginFactory->listAllPlugins('MarpaX::Languages::XML::Impl::Plugin::WFC'), ':all', ':none') . "."
@@ -70,7 +76,7 @@ class MarpaX::Languages::XML {
                 autosplit => ',',
                 short => 'v',
                 doc =>
-                 "Validation constraints. Repeatable option. Default is \":all\". Supported values are:\n"
+                 "Validation constraints. Use comma \",\" to separate multiple values. Default is \":all\". Supported values are:\n"
                  . join(",\n",  map
                         {"\t\t$_" . __PACKAGE__->_pluginsToDoc('MarpaX::Languages::XML::Impl::Plugin::VC', $_)}
                         MarpaX::Languages::XML::Impl::PluginFactory->listAllPlugins('MarpaX::Languages::XML::Impl::Plugin::VC'), ':all', ':none') . "."
@@ -97,7 +103,6 @@ class MarpaX::Languages::XML {
                    # Options
                    #
                    format => 's',
-                   short => 's',
                    doc => q{Start symbol. Default is "document". Supported values: "document", "extParsedEnt" and "extSubset".}
                 );
   # ---------------------------------------------------------------------------
@@ -146,6 +151,53 @@ class MarpaX::Languages::XML {
                              short => 'u',
                              doc => q{Unicode newline. Has an impact on counting line and column numbers. Default to a false value, which mean that what wour current OS think is a newline will be used.}
                             );
+  # ---------------------------------------------------------------------------
+  option sax => (
+                 is => 'ro',
+                 isa => ArrayRef[Str],
+                 default => sub { [] },
+                 handles_via => 'Array',
+                 handles => {
+                             _elements_sax => 'elements'
+                            },
+                 #
+                 # Options
+                 #
+                 format => 's@',
+                 autosplit => ',',
+                 short => 's',
+                 doc => q{Assign a default SAX Handler that will just log to the INFO loglevel their argument(s). Use comma \",\" to separate multiple values. Default is an empty list. For example: --sax start_document,start_element,end_element,end_document. If you give ":all", all poossible handlers will be activated.}
+                );
+
+  method _start_document(--> SaxHandlerReturnCode) { $self->_logger->infof('%s%s', 'start_document', \@_); return EXIT_SUCCESS; }
+  method _start_element (--> SaxHandlerReturnCode) { $self->_logger->infof('%s%s', 'start_element', \@_);  return EXIT_SUCCESS; }
+  method _end_element   (--> SaxHandlerReturnCode) { $self->_logger->infof('%s%s', 'end_element', \@_);    return EXIT_SUCCESS; }
+  method _end_document  (--> SaxHandlerReturnCode) { $self->_logger->infof('%s%s', 'end_document', \@_);   return EXIT_SUCCESS; }
+
+  has saxHandler => ( is => 'ro',
+                      isa => SaxHandler,
+                      default => sub { {} },
+                      builder => 1
+                    );
+
+  method _build_saxHandler( --> SaxHandler) {
+    my @elements = $self->_elements_sax;
+    if (grep {$_ eq ':all'} @elements) {
+      @elements =  qw/start_document
+                      start_element
+                      end_element
+                      end_document/;
+    }
+    foreach (@elements) {
+         if ($_ eq 'start_document') { $self->_set_saxHandle($_, \&_start_document); }
+      elsif ($_ eq 'start_element')  { $self->_set_saxHandle($_, \&_start_element); }
+      elsif ($_ eq 'end_element')    { $self->_set_saxHandle($_, \&_end_element); }
+      elsif ($_ eq 'end_document')   { $self->_set_saxHandle($_, \&_end_document); }
+      else  { $self->_logger->warnf('Unsupported SAX event %s', $_); }
+    }
+  }
+
+  with 'MooX::Role::Logger';
 }
 
 1;

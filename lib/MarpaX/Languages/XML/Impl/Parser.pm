@@ -22,6 +22,7 @@ class MarpaX::Languages::XML::Impl::Parser {
   use MarpaX::Languages::XML::Type::LastLexemes -all;
   use MarpaX::Languages::XML::Type::Parser -all;
   use MarpaX::Languages::XML::Type::Recognizer -all;
+  use MarpaX::Languages::XML::Type::SaxHandler -all;
   use MarpaX::Languages::XML::Type::StartSymbol -all;
   use MarpaX::Languages::XML::Type::XmlVersion -all;
   use MarpaX::Languages::XML::Marpa::R2::Hooks;
@@ -58,6 +59,7 @@ class MarpaX::Languages::XML::Impl::Parser {
   has eolHandling     => ( is => 'rw',  isa => Bool,              default => false );
   has canReduce       => ( is => 'rw',  isa => Bool,              default => false );
   has io              => ( is => 'rwp', isa => IO );
+  has saxHandler      => ( is => 'ro',  isa => SaxHandler,        default => sub { {} } );
 
   has _contexts       => ( is => 'rw',  isa => ArrayRef[Context], default => sub { [] }, 
                            handles_via => 'Array', handles => {
@@ -127,12 +129,9 @@ class MarpaX::Languages::XML::Impl::Parser {
                                        ENCNAME_COMPLETED       => 'ENCNAME',
                                        XMLDECL_END_COMPLETED   => 'XMLDECL_END',
                                        VERSIONNUM_COMPLETED    => 'VERSIONNUM',
-                                       STag_COMPLETED          => 'STag'
+                                       STag_COMPLETED          => 'STag',
+                                       document_COMPLETED      => 'document'
                                       },
-                         nulled => {
-                                    start_document => 'start_document',
-                                    end_document   => $self->get_grammar_endEventName('document')
-                                   }
                         },
             content => {
                         completed => {
@@ -147,7 +146,7 @@ class MarpaX::Languages::XML::Impl::Parser {
 
   method _build__grammars_endEventName( --> HashRef[Str]) {
     return {
-            document => 'end_document',
+            document => 'document_COMPLETED',
             content  => 'content_NULLED'
            };
   }
