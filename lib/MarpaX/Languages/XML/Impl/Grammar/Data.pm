@@ -25,9 +25,9 @@ lexeme default = action => [start,length,value,name] forgiving => 1
 start                         ::= $START
 MiscAny                       ::= Misc*
 #
-# The presence of start_document event alleviates the need of internal_event_for_immediate_pause
+# start_document and end_document are hardcoded in the parser
 #
-document                      ::= (start_document) prolog element MiscAny (end_document)
+document                      ::= prolog element MiscAny
 Name                          ::= NAME
 Names                         ::= Name+ separator => SPACE proper => 1
 Nmtoken                       ::= NMTOKENMANY
@@ -543,10 +543,8 @@ content_NULLED ::= ;
 #
 # Nullable rules
 #
-start_document      ::= ;
 start_element       ::= ;
 end_element         ::= ;
-end_document        ::= ;
 #
 # Events can be added on-the-fly at grammar generation
 #
@@ -618,9 +616,9 @@ lexeme default = action => [start,length,value,name] forgiving => 1
 start                         ::= $START
 MiscAny                       ::= Misc*
 #
-# The presence of start_document event alleviates the need of internal_event_for_immediate_pause
+# start_document and end_document are hardcoded in the parser
 #
-document                      ::= (start_document) prolog element MiscAny (end_document)
+document                      ::= prolog element MiscAny
 Name                          ::= NAME
 Names                         ::= Name+ separator => SPACE proper => 1
 Nmtoken                       ::= NMTOKENMANY
@@ -1136,10 +1134,8 @@ content_NULLED ::= ;
 #
 # Nullable rules
 #
-start_document      ::= ;
 start_element       ::= ;
 end_element         ::= ;
-end_document        ::= ;
 #
 # Events can be added on-the-fly at grammar generation
 #
