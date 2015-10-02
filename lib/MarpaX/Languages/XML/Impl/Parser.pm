@@ -56,7 +56,7 @@ class MarpaX::Languages::XML::Impl::Parser {
                                        }
                           );
   has eof             => ( is => 'rw',  isa => Bool,              default => false, trigger => 1 );
-  has inDecl          => ( is => 'rw',  isa => Bool,              default => true );
+  has inDecl          => ( is => 'rw',  isa => Bool,              default => true, trigger => 1 );
   has io              => ( is => 'rwp', isa => IO );
   has saxHandler      => ( is => 'ro',  isa => SaxHandler,        default => sub { {} },
                            handles_via => 'Hash',
@@ -83,7 +83,7 @@ class MarpaX::Languages::XML::Impl::Parser {
   # (regardless of the encoding currently in use).
   #
   class_has _firstReadCharacterLength => ( is => 'ro', isa => PositiveInt, default => 71 );
-
+  has _dispatcher     => ( is => 'rw',  isa => Dispatcher, lazy => 1, clearer => 1, builder => 1);
   has _contexts       => ( is => 'rw',  isa => ArrayRef[Context], default => sub { [] }, 
                            handles_via => 'Array', handles => {
                                                                count_contexts  => 'count',
@@ -101,8 +101,12 @@ class MarpaX::Languages::XML::Impl::Parser {
   has namespaceSupport        => ( is => 'rw',  isa => NamespaceSupport,                   lazy => 1, builder => 1, clearer => 1 );
 
 
+  method _trigger_inDecl(Bool $inDecl) {
+    $self->_logger->tracef('Setting inDecl boolean to %s', $inDecl ? 'true' : 'false');
+  }
+
   method _trigger_eof(Bool $eof) {
-    $self->_logger->debugf('EOF');
+    $self->_logger->tracef('Setting eof boolean to %s', $eof ? 'true' : 'false');
   }
 
   around _push_context {
@@ -121,6 +125,25 @@ class MarpaX::Languages::XML::Impl::Parser {
     return $rc;
   };
 
+  method _build__dispatcher( --> Dispatcher) {
+    my $dispatcher    = MarpaX::Languages::XML::Impl::Dispatcher->new();
+    #
+    # Events are:
+    # - WFC constraints (configurable)
+    # - VC constraints (configurable)
+    # - IO constraints (not configurable)
+    # - other events (not configurable)
+    #
+    my $pluginFactory = MarpaX::Languages::XML::Impl::PluginFactory->new();
+    $pluginFactory
+      ->registerPlugins($self->xmlVersion, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::WFC',     $self->elements_wfc)
+      ->registerPlugins($self->xmlVersion, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::VC',      $self->elements_vc)
+      ->registerPlugins($self->xmlVersion, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::IO',      ':all')
+      ->registerPlugins($self->xmlVersion, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::General', ':all')
+      ;
+    return $dispatcher;
+  }
+
   method _trigger_xmlVersion(XmlVersion $xmlVersion --> Undef) {
     #
     # Make sure all the grammar stuff will be recreated
@@ -135,6 +158,7 @@ class MarpaX::Languages::XML::Impl::Parser {
     $self->_clear_grammars;
     $self->_clear_grammars_events;
     $self->_clear_grammars_endEventName;
+    $self->_clear_dispatcher;
     $self->clear_namespaceSupport;
     $self->inDecl(true);
     return;
@@ -229,21 +253,6 @@ class MarpaX::Languages::XML::Impl::Parser {
     $self->io->buffer(\$MarpaX::Languages::XML::Impl::Parser::buffer);
     $self->io->block_size($self->blockSize);
     #
-    # Prepare Events dispatching
-    # Events are:
-    # - WFC constraints (configurable)
-    # - VC constraints (configurable)
-    # - other events (not configurable)
-    #
-    my $dispatcher    = MarpaX::Languages::XML::Impl::Dispatcher->new();
-    my $pluginFactory = MarpaX::Languages::XML::Impl::PluginFactory->new();
-    $pluginFactory
-      ->registerPlugins($self->xmlVersion, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::WFC',     $self->elements_wfc)
-      ->registerPlugins($self->xmlVersion, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::VC',      $self->elements_vc)
-      ->registerPlugins($self->xmlVersion, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::IO',      ':all')
-      ->registerPlugins($self->xmlVersion, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::General', ':all')
-      ;
-    #
     # Push first context (I delibarately not use internal variables)
     #
     $self->_push_context(MarpaX::Languages::XML::Impl::Context->new(
@@ -256,19 +265,23 @@ class MarpaX::Languages::XML::Impl::Parser {
     #
     # Do the first read to avoid as much as possible perl pollution about unmappable character
     #
-    $self->_doEstimatedBestFirstRead($dispatcher, $context);
+    $self->_doEstimatedBestFirstRead($self->_dispatcher, $context);
     #
     # Note: having $context prevents the first first of them to be garbaged, re-used for end_document -;
     #
     # start_document and end_document are systematic, regardless of parsing failure or success
     #
-    $dispatcher->notify('start_document', $self, $context);
+    $self->_dispatcher->notify('start_document', $self, $context);
     try {
       #
       # Loop until there is no more context
       #
       do {
-        $self->_parse_generic($dispatcher);
+        #
+        # It is important to to $self->_dispatcher here because a change of xmlVersion
+        # may have recreated it.
+        #
+        $self->_parse_generic($self->_dispatcher);
         #
         # The pop is done eventually inside _parse_generic()
         #
@@ -279,7 +292,7 @@ class MarpaX::Languages::XML::Impl::Parser {
       $self->rc(EXIT_FAILURE);
       return;
     };
-    $dispatcher->notify('end_document', $self, $context);
+    $self->_dispatcher->notify('end_document', $self, $context);
     #
     # Return code eventually under SAX handler control
     #
@@ -332,6 +345,7 @@ class MarpaX::Languages::XML::Impl::Parser {
     my @lexeme_minlength_by_symbol_ids = $grammar->elements_lexemesMinlengthBySymbolId;
     my $_XMLNSCOLON_ID                 = $grammar->compiledGrammar->symbol_by_name_hash->{'_XMLNSCOLON'};
     my $_XMLNS_ID                      = $grammar->compiledGrammar->symbol_by_name_hash->{'_XMLNS'};
+    my $inDecl                         = $self->inDecl;
     #
     # Non-constant variables
     #
@@ -382,6 +396,17 @@ class MarpaX::Languages::XML::Impl::Parser {
           # if (($length_matched_data == $remaining) && (! $self->eof))
           #
           $dispatcher->notify($_, $self, $context);
+          #
+          # In the case of XMLDECL_END, the dispatcher will set inDecl to false
+          # Then we want to reduce the buffer, this is important for the EOL event.
+          #
+          if ($inDecl && ! $self->inDecl) {
+            $inDecl = false;
+            $self->_reduce($context);
+            $pos = pos($MarpaX::Languages::XML::Impl::Parser::buffer) = 0;
+            $length = length($MarpaX::Languages::XML::Impl::Parser::buffer);
+            $remaining = $length - $pos;
+          }
           #
           # Immediate action ?
           #

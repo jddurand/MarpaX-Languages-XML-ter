@@ -37,7 +37,7 @@ class MarpaX::Languages::XML {
                  builder => 1
                 );
   method _build_parser (--> InstanceOf['MarpaX::Languages::XML::Impl::Parser']) {
-    return MarpaX::Languages::XML::Impl::Parser->new(xmlVersion      => $self->xml,
+    return MarpaX::Languages::XML::Impl::Parser->new(xmlVersion      => $self->xmlversion,
                                                      xmlns           => $self->xmlns,
                                                      wfc             => $self->wfc,
                                                      vc              => $self->vc,
@@ -106,17 +106,17 @@ class MarpaX::Languages::XML {
                    doc => q{Start symbol. Default is "document". Supported values: "document", "extParsedEnt" and "extSubset".}
                 );
   # ---------------------------------------------------------------------------
-  option xml => (
-                 is => 'ro',
-                 isa => XmlVersion,
-                 default => '1.0',
-                 #
-                 # Options
-                 #
-                 format => 's',
-                 short => 'x',
-                 doc => q{XML Version hint. Default is "1.0". Supported values: "1.0" and "1.1". If the parser detect another version it will automatically switch.}
-                );
+  option xmlversion => (
+                        is => 'ro',
+                        isa => XmlVersion,
+                        default => '1.0',
+                        #
+                        # Options
+                        #
+                        format => 's',
+                        short => 'x',
+                        doc => q{XML Version hint. Default is "1.0". Supported values: "1.0" and "1.1". If the parser detect another version it will automatically switch.}
+                       );
   # ---------------------------------------------------------------------------
   option xmlns => (
                    is => 'ro',
