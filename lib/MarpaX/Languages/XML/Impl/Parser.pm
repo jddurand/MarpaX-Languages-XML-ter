@@ -65,6 +65,8 @@ class MarpaX::Languages::XML::Impl::Parser {
                                        exists_saxHandle => 'exists'
                                       }
                          );
+  has line            => ( is => 'rwp',  isa => PositiveOrZeroInt, default => 1 );
+  has column          => ( is => 'rwp',  isa => PositiveOrZeroInt, default => 1 );
   #
   # The very first read in _parse_generic() will use block_size.
   # Nevertheless is this is done with the wrong encoding, we do not want to be polluted
@@ -322,8 +324,8 @@ class MarpaX::Languages::XML::Impl::Parser {
     my $startSymbol                    = $grammar->startSymbol;
     my $recognizer                     = $context->recognizer;
     my $io                             = $self->io;
-    my $line                           = $context->line;
-    my $column                         = $context->column;
+    my $line                           = $self->line;
+    my $column                         = $self->column;
     my $unicode_newline_regexp         = $self->_unicode_newline_regexp;
     my @lexeme_match_by_symbol_ids     = $grammar->elements_lexemesRegexpBySymbolId;
     my @lexeme_exclusion_by_symbol_ids = $grammar->elements_lexemesExclusionsRegexpBySymbolId;
@@ -582,8 +584,8 @@ class MarpaX::Languages::XML::Impl::Parser {
           #
           # Move trackers
           #
-          $line = $context->line($next_line);
-          $column = $context->column($next_column);
+          $line = $self->_set_line($next_line);
+          $column = $self->_set_column($next_column);
           $remaining -= $max_length;
           #
           # Reposition internal buffer

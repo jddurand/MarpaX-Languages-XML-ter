@@ -29,10 +29,7 @@ class MarpaX::Languages::XML::Impl::Plugin::General::ELEMENT_START_COMPLETED {
     #
     my $newContext = MarpaX::Languages::XML::Impl::Context->new(
                                                                 grammar          => $parser->get_grammar('element'),
-                                                                endEventName     => $parser->get_grammar_endEventName('element'),
-                                                                line             => $context->line,
-                                                                column           => $context->column,
-                                                                parentContext    => $context,
+                                                                endEventName     => $parser->get_grammar_endEventName('element')
                                                                );
     $parser->_push_context($newContext);
     #

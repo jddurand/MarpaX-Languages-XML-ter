@@ -19,21 +19,7 @@ class MarpaX::Languages::XML::Impl::Context {
   has grammar         => ( is => 'rwp', isa => Grammar,           required => 1, trigger => 1 );
   has endEventName    => ( is => 'ro',  isa => Str,               required => 1 );
   has recognizer      => ( is => 'rwp', isa => Recognizer,        init_arg => undef );
-  has line            => ( is => 'rw',  isa => PositiveOrZeroInt, default => 1 );
-  has column          => ( is => 'rw',  isa => PositiveOrZeroInt, default => 1 );
   has immediateAction => ( is => 'rw',  isa => ImmediateAction,   default => IMMEDIATEACTION_NONE );
-  has parentContext   => ( is => 'rw',  isa => Context|Undef,     default => undef );
-
-  method DEMOLISH {
-    my $parentContext = $self->parentContext;
-    if (Context->check($parentContext)) {
-      #
-      # Transfer line and column information into parent
-      #
-      $parentContext->line($self->line);
-      $parentContext->column($self->column);
-    }
-  }
 
   method _trigger_grammar(Grammar $grammar --> Undef) {
     #
