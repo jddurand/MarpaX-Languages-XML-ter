@@ -27,11 +27,7 @@ class MarpaX::Languages::XML::Impl::Plugin::IO::EOL :assertions {
   my $_impl;
 
   method BUILD {
-    if ($self->xmlVersion eq '1.0') {
-      $_impl = \&_impl10;
-    } else {
-      $_impl = \&_impl11;
-    }
+    $_impl = ($self->xmlVersion eq '1.0') ? \&_impl10 : \&_impl11;
   };
 
   method _impl11(Dispatcher $dispatcher, Parser $parser, Context $context --> PluggableConstant) {
