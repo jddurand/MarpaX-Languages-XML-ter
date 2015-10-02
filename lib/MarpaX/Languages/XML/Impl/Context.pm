@@ -21,22 +21,21 @@ class MarpaX::Languages::XML::Impl::Context {
   has recognizer      => ( is => 'rwp', isa => Recognizer,        init_arg => undef );
   has immediateAction => ( is => 'rw',  isa => ImmediateAction,   default => IMMEDIATEACTION_NONE );
 
-  method _trigger_grammar(Grammar $grammar --> Undef) {
-    #
-    # And create a recognizer
-    #
+  method _startRecognizer(Grammar $grammar --> Undef) {
     my $recognizer = Marpa::R2::Scanless::R->new({grammar => $grammar->compiledGrammar});
     $recognizer->read(\'  ');
     $self->_set_recognizer($recognizer);
+  }
 
-    return;
+  method _trigger_grammar(Grammar $grammar --> Undef) {
+    return $self->_startRecognizer($grammar);
   }
 
   method restartRecognizer( --> Context) {
     #
     # I should understand series_restart() OOTD
     #
-    $self->_set_grammar($self->grammar);
+    return $self->_startRecognizer($self->grammar);
   }
 
   with 'MarpaX::Languages::XML::Role::Context';
