@@ -42,7 +42,11 @@ class MarpaX::Languages::XML::Impl::Plugin::General::XMLDECL_END_COMPLETED {
       }
     }
     #
-    # Say we are not anymore in a declaration
+    # Say the buffer can be reduced
+    #
+    $context->immediateAction(IMMEDIATEACTION_REDUCE);
+    #
+    # And that we are not anymore in a decl context
     #
     $parser->inDecl(false);
 

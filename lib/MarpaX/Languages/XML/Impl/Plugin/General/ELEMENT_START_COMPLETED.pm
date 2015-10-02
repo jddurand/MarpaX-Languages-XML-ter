@@ -23,6 +23,12 @@ class MarpaX::Languages::XML::Impl::Plugin::General::ELEMENT_START_COMPLETED {
                                           }
                           );
 
+  my $_NAME_LEXEME_NAME;
+
+  method BUILD {
+    $_NAME_LEXEME_NAME = $self->xmlns ? '_NCNAME' : '_NAME';
+  };
+
   method N_ELEMENT_START_COMPLETED(Dispatcher $dispatcher, Parser $parser, Context $context --> PluggableConstant) {
     #
     # Push element context
@@ -31,27 +37,30 @@ class MarpaX::Languages::XML::Impl::Plugin::General::ELEMENT_START_COMPLETED {
                                                                 grammar          => $parser->get_grammar('element'),
                                                                 endEventName     => $parser->get_grammar_endEventName('element')
                                                                );
-    $parser->_push_context($newContext);
+    $self->_logger->tracef('ELEMENT_START_COMPLETED : push element context');
+    $parser->push_context($newContext);
     #
     # Position is already after ELEMENT_START: push that lexeme in the new context so that we can
     # continue. We disable/enable the ELEMENT_START_COMPLETED to avoid recursivity
     #
     $newContext->recognizer->activate('ELEMENT_START_COMPLETED', 0);
-    $newContext->recognizer->lexeme_read('_ELEMENT_START', 0, 1, '<');
+    $newContext->recognizer->lexeme_read('_ELEMENT_START', 0, 1);
     $newContext->recognizer->activate('ELEMENT_START_COMPLETED', 1);
     #
     # We prepare the current context to do as if the element was eat, we are
     # careful to not generate any corresponding event
     #
-    if ($context->grammar->xmlns) {
-      $context->recognizer->lexeme_read('_NCNAME', 0, 1, 'dummy');
-    } else {
-      $context->recognizer->lexeme_read('_NAME', 0, 1, 'dummy');
-    }
+    $context->recognizer->lexeme_read($_NAME_LEXEME_NAME, 0, 1);
     $context->recognizer->activate('element_COMPLETED', 0);
-    $context->recognizer->lexeme_read('_EMPTYELEM_END', 0, 1, '/>');
+    $context->recognizer->lexeme_read('_EMPTYELEM_END', 0, 1);
     $context->recognizer->activate('element_COMPLETED', 1);
-    $context->immediateAction(IMMEDIATEACTION_RESUME);
+    #
+    # Next time with this context, we do not want to pile-up again an element context:
+    # We say it is has to return, but is not popped up because it will have to resume
+    # when the lement we just piled up will be overt. But it will not have to say it
+    # needs again an element context -;
+    #
+    $context->immediateAction(IMMEDIATEACTION_MARK_EVENTS_DONE|IMMEDIATEACTION_RETURN);
 
     return EAT_CLIENT;
   }

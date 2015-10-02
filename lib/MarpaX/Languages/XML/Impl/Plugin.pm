@@ -15,7 +15,9 @@ class MarpaX::Languages::XML::Impl::Plugin {
 
   has doc => (is => 'ro', isa => Str, default => '');
 
-  has xmlVersion => (is => 'ro', isa => XmlVersion, default => '1.0');
+  has xmlVersion => (is => 'ro', isa => XmlVersion, required => 1);
+
+  has xmlns => (is => 'ro', isa => Bool, required => 1);
 
   has subscriptions => (is => 'rwp', isa => HashRef[ArrayRef[Str]],
                         default => sub { return {} },

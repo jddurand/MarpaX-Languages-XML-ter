@@ -12,6 +12,7 @@ role MarpaX::Languages::XML::Role::Plugin {
 
   requires 'doc';
   requires 'xmlVersion';
+  requires 'xmlns';
   requires 'subscriptions';
   requires 'plugin_register';
 }

@@ -55,7 +55,6 @@ class MarpaX::Languages::XML::Impl::Parser {
                                         set_lastLexeme => 'set',
                                        }
                           );
-  has eof             => ( is => 'rw',  isa => Bool,              default => false, trigger => 1 );
   has inDecl          => ( is => 'rw',  isa => Bool,              default => true, trigger => 1 );
   has io              => ( is => 'rwp', isa => IO );
   has saxHandler      => ( is => 'ro',  isa => SaxHandler,        default => sub { {} },
@@ -83,14 +82,14 @@ class MarpaX::Languages::XML::Impl::Parser {
   # (regardless of the encoding currently in use).
   #
   class_has _firstReadCharacterLength => ( is => 'ro', isa => PositiveInt, default => 71 );
+  has _eof            => ( is => 'rw',  isa => Bool,              default => false, trigger => 1 );
   has _dispatcher     => ( is => 'rw',  isa => Dispatcher, lazy => 1, clearer => 1, builder => 1);
   has _contexts       => ( is => 'rw',  isa => ArrayRef[Context], default => sub { [] }, 
                            handles_via => 'Array', handles => {
-                                                               count_contexts  => 'count',
-                                                               _push_context   => 'push',
-                                                               _pop_context    => 'pop',
-                                                               get_context     => 'get',
-                                                               set_context     => 'set'
+                                                               count_contexts => 'count',
+                                                               push_context   => 'push',
+                                                               _pop_context   => 'pop',
+                                                               _get_context   => 'get'
                                                               }
                          );
 
@@ -105,25 +104,9 @@ class MarpaX::Languages::XML::Impl::Parser {
     $self->_logger->tracef('Setting inDecl boolean to %s', $inDecl ? 'true' : 'false');
   }
 
-  method _trigger_eof(Bool $eof) {
+  method _trigger__eof(Bool $eof) {
     $self->_logger->tracef('Setting eof boolean to %s', $eof ? 'true' : 'false');
   }
-
-  around _push_context {
-    my $count = $self->count_contexts;
-    my $rc = $self->${^NEXT}(@_);
-    $self->_logger->debugf('Pushed %s context (%d -> %d)', $_[0]->grammar->startSymbol, $count, $count + 1);
-    return $rc;
-  };
-
-  around _pop_context {
-    my $count = $self->count_contexts;
-    my $previousContext = $self->get_context(-1);
-    my $rc = $self->${^NEXT}(@_);
-    my $startSymbol = $rc->grammar->startSymbol;
-    $self->_logger->debugf('Popped %s context (%d -> %d)', $startSymbol, $count, $count - 1);
-    return $rc;
-  };
 
   method _build__dispatcher( --> Dispatcher) {
     my $dispatcher    = MarpaX::Languages::XML::Impl::Dispatcher->new();
@@ -136,10 +119,10 @@ class MarpaX::Languages::XML::Impl::Parser {
     #
     my $pluginFactory = MarpaX::Languages::XML::Impl::PluginFactory->new();
     $pluginFactory
-      ->registerPlugins($self->xmlVersion, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::WFC',     $self->elements_wfc)
-      ->registerPlugins($self->xmlVersion, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::VC',      $self->elements_vc)
-      ->registerPlugins($self->xmlVersion, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::IO',      ':all')
-      ->registerPlugins($self->xmlVersion, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::General', ':all')
+      ->registerPlugins($self->xmlVersion, $self->xmlns, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::WFC',     $self->elements_wfc)
+      ->registerPlugins($self->xmlVersion, $self->xmlns, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::VC',      $self->elements_vc)
+      ->registerPlugins($self->xmlVersion, $self->xmlns, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::IO',      ':all')
+      ->registerPlugins($self->xmlVersion, $self->xmlns, $dispatcher, 'MarpaX::Languages::XML::Impl::Plugin::General', ':all')
       ;
     return $dispatcher;
   }
@@ -151,7 +134,6 @@ class MarpaX::Languages::XML::Impl::Parser {
     # my $context = MarpaX::Languages::XML::Impl::Context->new(
     #                                                          grammar          => $self->get_grammar($self->startSymbol),
     #                                                          endEventName     => $self->get_grammar_endEventName($self->startSymbol),
-    #                                                          inDecl           => $self->inDecl
     #                                                         );
     # So we need to clear '_grammars', '_grammar_events', '_grammars_endEventName'
     #
@@ -255,13 +237,12 @@ class MarpaX::Languages::XML::Impl::Parser {
     #
     # Push first context (I delibarately not use internal variables)
     #
-    $self->_push_context(MarpaX::Languages::XML::Impl::Context->new(
-                                                                    grammar          => $self->get_grammar($self->startSymbol),
-                                                                    endEventName     => $self->get_grammar_endEventName($self->startSymbol),
-                                                                    inDecl           => $self->inDecl
-                                                                   )
-                        );
-    my $context = $self->get_context(0);
+    $self->push_context(MarpaX::Languages::XML::Impl::Context->new(
+                                                                   grammar          => $self->get_grammar($self->startSymbol),
+                                                                   endEventName     => $self->get_grammar_endEventName($self->startSymbol),
+                                                                  )
+                       );
+    my $context = $self->_get_context(0);
     #
     # Do the first read to avoid as much as possible perl pollution about unmappable character
     #
@@ -279,13 +260,12 @@ class MarpaX::Languages::XML::Impl::Parser {
       do {
         #
         # It is important to to $self->_dispatcher here because a change of xmlVersion
-        # may have recreated it.
+        # may recreate it.
         #
         $self->_parse_generic($self->_dispatcher);
         #
         # The pop is done eventually inside _parse_generic()
         #
-        $self->_logger->tracef('Number of remaining contexts: %d', $self->count_contexts);
       } while ($self->count_contexts);
     } catch {
       $self->_logger->errorf($_);
@@ -303,16 +283,17 @@ class MarpaX::Languages::XML::Impl::Parser {
     my $io     = $self->io;
     my $pos    = pos($MarpaX::Languages::XML::Impl::Parser::buffer);
     my $length = length($MarpaX::Languages::XML::Impl::Parser::buffer);
+    my $count = $self->count_contexts;
     my $new_length;
 
     if ($pos >= $length) {
       $MarpaX::Languages::XML::Impl::Parser::buffer = '';
       $new_length = 0;
-      $self->_logger->tracef('[%d]%s Buffer length reduced to %d', $self->count_contexts, $context->grammar->startSymbol, $new_length);
+      $self->_logger->tracef('[%d/%d]%s Buffer length reduced to %d', $count, $count, $context->grammar->startSymbol, $new_length);
     } elsif ($pos > 0) {
       substr($MarpaX::Languages::XML::Impl::Parser::buffer, 0, $pos, '');
       $new_length = $length - $pos;
-      $self->_logger->tracef('[%d]%s Buffer length reduced to %d', $self->count_contexts, $context->grammar->startSymbol, $new_length);
+      $self->_logger->tracef('[%d/%d]%s Buffer length reduced to %d', $count, $count, $context->grammar->startSymbol, $new_length);
     }
 
     return $self;
@@ -326,8 +307,61 @@ class MarpaX::Languages::XML::Impl::Parser {
     return $self;
   }
 
+  #
+  # If _doEvents returns false, the caller will immediately return
+  #
+  method _doEvents(Dispatcher $dispatcher, Context $context, Str $startSymbol, Str $endEventName, Recognizer $recognizer, ScalarRef $canStopRef, ScalarRef $posRef, ScalarRef $lengthRef, ScalarRef $remainingRef --> Bool) {
+    my $rc = true;
+    my @event_names  = map { $_->[0] } @{$recognizer->events()};
+    my $count = $self->count_contexts;
+    $self->_logger->tracef('[%d/%d]%s Events  : %s', $count, $self->count_contexts, $startSymbol, $recognizer->events);
+    foreach (@event_names) {
+      #
+      # Catch the end event name
+      #
+      ${$canStopRef} = true if ($_ eq $endEventName);
+      #
+      # Dispatch events
+      #
+      $dispatcher->notify($_, $self, $context);
+      #
+      # Immediate action ?
+      #
+      my $immediateAction = $context->immediateAction;
+      if ($immediateAction) {
+        if ($immediateAction & IMMEDIATEACTION_RETURN) {
+          $self->_logger->tracef('[%d/%d]%s IMMEDIATEACTION_RETURN', $count, $self->count_contexts, $startSymbol);
+          $rc = false;
+          $context->immediateAction(IMMEDIATEACTION_NONE);
+        }
+        if ($immediateAction & IMMEDIATEACTION_POP_CONTEXT) {
+          $self->_logger->tracef('[%d/%d]%s IMMEDIATEACTION_POP_CONTEXT', $count, $self->count_contexts, $startSymbol);
+          $self->_pop_context;
+          $context->immediateAction(IMMEDIATEACTION_NONE);
+        }
+        if ($immediateAction & IMMEDIATEACTION_REDUCE) {
+          $self->_logger->tracef('[%d/%d]%s IMMEDIATEACTION_REDUCE', $count, $self->count_contexts, $startSymbol);
+          $self->_reduce($context);
+          $context->immediateAction(IMMEDIATEACTION_NONE);
+          my $pos = ${$posRef} = pos($MarpaX::Languages::XML::Impl::Parser::buffer) = 0;
+          my $length = ${$lengthRef} = length($MarpaX::Languages::XML::Impl::Parser::buffer);
+          ${$remainingRef} = $length - $pos;
+        }
+        #
+        # It is very important to test this bit in the LAST place: it can overwrite the immediateAction to
+        # something else but IMMEDIATEACTION_NONE
+        #
+        if ($immediateAction & IMMEDIATEACTION_MARK_EVENTS_DONE) {
+          $self->_logger->tracef('[%d/%d]%s IMMEDIATEACTION_MARK_EVENTS_DONE', $count, $self->count_contexts, $startSymbol);
+          $context->immediateAction(_IMMEDIATEACTION_EVENTS_DONE);
+        }
+      }
+    }
+    return $rc;
+  }
+
   method _parse_generic(Dispatcher $dispatcher --> Parser) {
-    my $context = $self->get_context(-1);
+    my $context = $self->_get_context(-1);
     #
     # Constant variables
     #
@@ -345,7 +379,7 @@ class MarpaX::Languages::XML::Impl::Parser {
     my @lexeme_minlength_by_symbol_ids = $grammar->elements_lexemesMinlengthBySymbolId;
     my $_XMLNSCOLON_ID                 = $grammar->compiledGrammar->symbol_by_name_hash->{'_XMLNSCOLON'};
     my $_XMLNS_ID                      = $grammar->compiledGrammar->symbol_by_name_hash->{'_XMLNS'};
-    my $inDecl                         = $self->inDecl;
+    my $count                          = $self->count_contexts;
     #
     # Non-constant variables
     #
@@ -353,97 +387,29 @@ class MarpaX::Languages::XML::Impl::Parser {
     my $length                         = length($MarpaX::Languages::XML::Impl::Parser::buffer);   # Faster than $io->length
     my $remaining                      = $length - $pos;
     my $previousCanStop                = 0;
+    my $canStop                        = false;
     #
     # Infinite loop until user says to last or error
     #
-    my $resumeMode;
-    if ($context->immediateAction == IMMEDIATEACTION_RESUME) {
-      $resumeMode = true;
-    } elsif ($context->immediateAction == IMMEDIATEACTION_RESTART) {
-      #
-      # We reposition at the beginning of the buffer. This is happening ONLY
-      # when encname disagree with IO encoding guess. In this case we have not
-      # reached XMLDECL_END, so per def $self->inDecl is still true.
-      #
-      $pos                            = pos($MarpaX::Languages::XML::Impl::Parser::buffer) = 0;
-      $remaining                      = $length;
+    if ($context->immediateAction != _IMMEDIATEACTION_EVENTS_DONE) {
+      my $doEventsRc = $self->_doEvents($dispatcher, $context, $startSymbol, $endEventName, $recognizer, \$canStop, \$pos, \$length, \$remaining);
+      $context->immediateAction(IMMEDIATEACTION_NONE);
+      return $self if (! $doEventsRc);
     }
-    $context->immediateAction(IMMEDIATEACTION_NONE);
 
     while (1) {
-      my $canStop = false;
       #
-      # First the events
-      #
-      if (! $resumeMode) {
-        my @event_names                      = map { $_->[0] } @{$recognizer->events()};
-        $self->_logger->tracef('[%d]%s Events  : %s', $self->count_contexts, $startSymbol, $recognizer->events);
-        foreach (@event_names) {
-          #
-          # Catch the end event name
-          #
-          $canStop = true if ($_ eq $endEventName);
-          #
-          # Dispatch events. It is VERY important to notice that IF
-          # a plugin modifies the buffer, the parser will NOT know
-          # about it. It is supported that the plugin can EXTEND the
-          # buffer (provided then that the position remains the same).
-          # No other buffer modification is supported.
-          # This is exactly for this reason that the test on lexeme's
-          # matched length is:
-          # if (($length_matched_data >= $remaining) && (! $self->eof))
-          # and not:
-          # if (($length_matched_data == $remaining) && (! $self->eof))
-          #
-          $dispatcher->notify($_, $self, $context);
-          #
-          # In the case of XMLDECL_END, the dispatcher will set inDecl to false
-          # Then we want to reduce the buffer, this is important for the EOL event.
-          #
-          if ($inDecl && ! $self->inDecl) {
-            $inDecl = false;
-            $self->_reduce($context);
-            $pos = pos($MarpaX::Languages::XML::Impl::Parser::buffer) = 0;
-            $length = length($MarpaX::Languages::XML::Impl::Parser::buffer);
-            $remaining = $length - $pos;
-          }
-          #
-          # Immediate action ?
-          #
-          my $immediateAction = $context->immediateAction;
-          if ($immediateAction != IMMEDIATEACTION_NONE) {
-            if ($immediateAction == IMMEDIATEACTION_PAUSE) {
-              $self->_logger->tracef('[%d]%s IMMEDIATEACTION_PAUSE', $self->count_contexts, $startSymbol);
-              return $self;
-            } elsif ($immediateAction == IMMEDIATEACTION_RESTART) {
-              $self->_logger->tracef('[%d]%s IMMEDIATEACTION_RESTART', $self->count_contexts, $startSymbol);
-              return $self;
-            } elsif ($immediateAction == IMMEDIATEACTION_RESUME) {
-              $self->_logger->tracef('[%d]%s IMMEDIATEACTION_RESUME', $self->count_contexts, $startSymbol);
-              return $self;
-            } elsif ($immediateAction == IMMEDIATEACTION_STOP) {
-              $self->_logger->tracef('[%d]%s IMMEDIATEACTION_STOP', $self->count_contexts, $startSymbol);
-              $self->_pop_context;
-              return $self;
-            } else {
-              ParseException->throw("Unsupported immediate action: $immediateAction");
-            }
-          }
-        }
-      }
-      $resumeMode = false;
-      #
-      # Then the expected lexemes
+      # Expected lexemes
       #
       my @terminals_expected_to_symbol_ids = $recognizer->terminals_expected_to_symbol_ids();
-      $self->_logger->tracef('[%d]%s Expected: %s', $self->count_contexts, $startSymbol, $recognizer->terminals_expected);
-      $self->_logger->tracef('[%d]%s      Ids: %s', $self->count_contexts, $startSymbol, \@terminals_expected_to_symbol_ids);
+      $self->_logger->tracef('[%d/%d]%s Expected: %s', $count, $self->count_contexts, $startSymbol, $recognizer->terminals_expected);
+      $self->_logger->tracef('[%d/%d]%s      Ids: %s', $count, $self->count_contexts, $startSymbol, \@terminals_expected_to_symbol_ids);
       while (1) {
         my %length = ();
         my $max_length = 0;
         if (@terminals_expected_to_symbol_ids) {
           if ($length <= 0) {
-            if ($self->eof) {
+            if ($self->_eof) {
               if ($canStop || $previousCanStop) {
                 $self->_pop_context;
                 return $self;
@@ -454,7 +420,7 @@ class MarpaX::Languages::XML::Impl::Parser {
               $self->read($dispatcher, $context);
               $length = length($MarpaX::Languages::XML::Impl::Parser::buffer);
               if ($length <= 0) {
-                $self->eof(true);
+                $self->_eof(true);
                 if ($canStop || $previousCanStop) {
                   $self->_pop_context;
                   return $self;
@@ -467,11 +433,11 @@ class MarpaX::Languages::XML::Impl::Parser {
             }
           }
           my @undecidable = grep { $lexeme_minlength_by_symbol_ids[$_] > $remaining } @terminals_expected_to_symbol_ids;
-          if (@undecidable && ! $self->eof) {
+          if (@undecidable && ! $self->_eof) {
 
             my $wanted = max(map { $lexeme_minlength_by_symbol_ids[$_] } @undecidable);
             my $needed = $wanted  - $remaining;
-            $self->_logger->tracef('[%d]%s Undecidable: need at least %d characters more', $self->count_contexts, $startSymbol, $needed);
+            $self->_logger->tracef('[%d/%d]%s Undecidable: need at least %d characters more', $count, $self->count_contexts, $startSymbol, $needed);
             if (! $self->inDecl) {
               $self->_reduce($context)->read($dispatcher, $context);
               $pos = pos($MarpaX::Languages::XML::Impl::Parser::buffer) = 0;
@@ -488,7 +454,7 @@ class MarpaX::Languages::XML::Impl::Parser {
               $remaining = $new_remaining;
               last;
             } else {
-              $self->eof(true);
+              $self->_eof(true);
             }
 
           }
@@ -507,7 +473,7 @@ class MarpaX::Languages::XML::Impl::Parser {
             #
             # Match reaches end of buffer ?
             #
-            if (($length_matched_data >= $remaining) && (! $self->eof)) { # Match up to the end of buffer is avoided as much as possible
+            if (($length_matched_data >= $remaining) && (! $self->_eof)) { # Match up to the end of buffer is avoided as much as possible
               if (! $self->inDecl) {
                 $self->_reduce($context)->read($dispatcher, $context);
                 $pos = pos($MarpaX::Languages::XML::Impl::Parser::buffer) = 0;
@@ -525,7 +491,7 @@ class MarpaX::Languages::XML::Impl::Parser {
                 $terminals_expected_again = 1;
                 last;
               } else {
-                $self->eof(true);
+                $self->_eof(true);
               }
             }
             #
@@ -590,7 +556,7 @@ class MarpaX::Languages::XML::Impl::Parser {
             $next_line   = $line;
             $next_column = $column + $max_length;
           }
-          $self->_logger->debugf('Match: %s: %s', {map { $compiledGrammar->symbol_name($_) => $length{$_} } keys %length}, $self->_safeString($data));
+          $self->_logger->debugf('[%d/%d]%s Match: %s: %s', $count, $self->count_contexts, $startSymbol, {map { $compiledGrammar->symbol_name($_) => $length{$_} } keys %length}, $self->_safeString($data));
           foreach (keys %length) {
             #
             # Remember last data for this lexeme
@@ -633,6 +599,7 @@ class MarpaX::Languages::XML::Impl::Parser {
       # Go to next events
       #
       $previousCanStop = $canStop;
+      return $self if (! $self->_doEvents($dispatcher, $context, $startSymbol, $endEventName, $recognizer, \$canStop, \$pos, \$length, \$remaining));
     }
     #
     # Never reached

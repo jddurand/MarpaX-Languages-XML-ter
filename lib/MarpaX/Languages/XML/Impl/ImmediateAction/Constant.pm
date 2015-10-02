@@ -3,54 +3,21 @@ package MarpaX::Languages::XML::Impl::ImmediateAction::Constant;
 # VERSION
 
 # AUTHORITY
-#
 
-use strictures 2;
-
-sub IMMEDIATEACTION_NONE    () { 0 }
-sub IMMEDIATEACTION_PAUSE   () { 1 }
-sub IMMEDIATEACTION_STOP    () { 2 }
-sub IMMEDIATEACTION_RESUME  () { 3 }
-sub IMMEDIATEACTION_RESTART () { 4 }
+sub  IMMEDIATEACTION_NONE                         () { 0x00 }
+sub  IMMEDIATEACTION_RETURN                       () { 0x01 }
+sub  IMMEDIATEACTION_POP_CONTEXT                  () { 0x02 }
+sub  IMMEDIATEACTION_MARK_EVENTS_DONE             () { 0x04 }
+sub  IMMEDIATEACTION_REDUCE                       () { 0x08 }
+sub _IMMEDIATEACTION_EVENTS_DONE                  () { 0x10 }     # Internal - plugins MUST not use it
 
 use parent 'Exporter';
 
-our @EXPORT = qw/IMMEDIATEACTION_NONE IMMEDIATEACTION_PAUSE IMMEDIATEACTION_STOP IMMEDIATEACTION_RESUME IMMEDIATEACTION_RESTART/;
+our @EXPORT = qw/IMMEDIATEACTION_NONE
+                 IMMEDIATEACTION_RETURN
+                 IMMEDIATEACTION_POP_CONTEXT
+                 IMMEDIATEACTION_MARK_EVENTS_DONE
+                 IMMEDIATEACTION_REDUCE
+                 _IMMEDIATEACTION_EVENTS_DONE/;
 
 1;
-
-=pod
-
-=begin Pod::Coverage
-
-EAT.+
-
-=end Pod::Coverage
-
-=head1 NAME
-
-MooX::Role::Pluggable::Constants - MooX::Role::Pluggable EAT values
-
-=head1 SYNOPSIS
-
-  ## Import EAT_NONE, EAT_CLIENT, EAT_PLUGIN, EAT_ALL :
-  use MooX::Role::Pluggable::Constants;
-
-=head1 DESCRIPTION
-
-Exports constants used by L<MooX::Role::Pluggable/"_pluggable_process">:
-
-  EAT_NONE   => 1
-  EAT_CLIENT => 2
-  EAT_PLUGIN => 3
-  EAT_ALL    => 4
-
-These are used by plugins to control the lifetime of a plugin-processed 
-event. See L<MooX::Role::Pluggable/"_pluggable_process"> for details.
-
-=head1 AUTHOR
-
-Jon Portnoy <avenj@cobaltirc.org>, borrowing from 
-L<Object::Pluggable::Constants>
-
-=cut

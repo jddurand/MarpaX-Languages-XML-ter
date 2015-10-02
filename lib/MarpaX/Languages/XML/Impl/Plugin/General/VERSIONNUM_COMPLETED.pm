@@ -38,23 +38,15 @@ class MarpaX::Languages::XML::Impl::Plugin::General::VERSIONNUM_COMPLETED {
       #
       $parser->xmlVersion($versionnum);
       #
-      # Per def we are at first and only context
-      #
-      $parser->set_context(0,
-                           MarpaX::Languages::XML::Impl::Context->new(
-                                                                      grammar          => $parser->get_grammar($context->grammar->startSymbol),
-                                                                      endEventName     => $parser->get_grammar_endEventName($context->grammar->startSymbol),
-                                                                      immediateAction  => IMMEDIATEACTION_RESTART
-                                                                     )
-                          );
-      #
-      # Make sure IO is resetted as well.
+      # Make sure IO is resetted
       #
       $parser->io->reopen;
       #
-      # And say to restart (Parser will refetch the contex)
+      # And replace context elements
       #
-      $context->immediateAction(IMMEDIATEACTION_RESTART);
+      $context->set_grammar($parser->get_grammar($context->grammar->startSymbol));
+      $context->set_endEventName($parser->get_grammar_endEventName($context->grammar->startSymbol));
+      $context->immediateAction(IMMEDIATEACTION_RETURN);
     } else {
       $self->_logger->tracef('XML and Grammar agree with version number %s', $versionnum);
     }

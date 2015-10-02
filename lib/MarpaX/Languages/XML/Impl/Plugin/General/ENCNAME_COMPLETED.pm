@@ -38,7 +38,10 @@ class MarpaX::Languages::XML::Impl::Plugin::General::ENCNAME_COMPLETED {
       $self->_logger->tracef('XML says encoding %s while IO is currently using %s', $encname, $parser->io->encodingName);
       $io->encoding($encname);
       $context->restartRecognizer;
-      $context->immediateAction(IMMEDIATEACTION_RESTART);
+      #
+      # Say we want to replay this context
+      #
+      $context->immediateAction(IMMEDIATEACTION_RETURN);
     } else {
       $self->_logger->tracef('XML and IO agree with encoding %s', $encname);
     }

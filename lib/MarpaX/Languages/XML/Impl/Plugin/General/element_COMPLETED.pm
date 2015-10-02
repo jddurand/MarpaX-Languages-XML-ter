@@ -25,9 +25,9 @@ class MarpaX::Languages::XML::Impl::Plugin::General::element_COMPLETED {
 
   method N_element_COMPLETED(Dispatcher $dispatcher, Parser $parser, Context $context --> PluggableConstant) {
     #
-    # Say stop
+    # Immediate stop for this context
     #
-    $context->immediateAction(IMMEDIATEACTION_STOP);
+    $context->immediateAction(IMMEDIATEACTION_POP_CONTEXT|IMMEDIATEACTION_RETURN);
 
     return EAT_CLIENT;
   }

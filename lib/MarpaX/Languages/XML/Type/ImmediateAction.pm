@@ -10,7 +10,6 @@ use MarpaX::Languages::XML::Impl::ImmediateAction::Constant;
 
 # AUTHORITY
 
-declare ImmediateAction,
-  as Enum[IMMEDIATEACTION_NONE, IMMEDIATEACTION_PAUSE, IMMEDIATEACTION_STOP, IMMEDIATEACTION_RESUME, IMMEDIATEACTION_RESTART];
+declare ImmediateAction, as Int;
 
 1;

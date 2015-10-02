@@ -45,7 +45,7 @@ class MarpaX::Languages::XML::Impl::PluginFactory {
     return @list;
   }
 
-  method registerPlugins(XmlVersion $xmlVersion, Dispatcher $dispatcher, Str $package, @plugins  --> PluginFactory) {
+  method registerPlugins(XmlVersion $xmlVersion, Bool $xmlns, Dispatcher $dispatcher, Str $package, @plugins  --> PluginFactory) {
     my @list = $self->_listPlugins($package, @plugins);
     if (! @list) {
       $self->_logger->tracef('No subclass for %s', $package);
@@ -70,7 +70,7 @@ class MarpaX::Languages::XML::Impl::PluginFactory {
         $errorMessage = $_;
       };
       if ($success) {
-        $dispatcher->plugin_add($pluginClass, $pluginClass->new(xmlVersion => $xmlVersion));
+        $dispatcher->plugin_add($pluginClass, $pluginClass->new(xmlVersion => $xmlVersion, xmlns => $xmlns));
       } else {
         $self->_logger->tracef('Failure to load %s: %s', $pluginClass, $errorMessage);
       }
