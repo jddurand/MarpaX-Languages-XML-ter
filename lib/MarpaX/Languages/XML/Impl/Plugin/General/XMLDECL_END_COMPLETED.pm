@@ -37,7 +37,7 @@ class MarpaX::Languages::XML::Impl::Plugin::General::XMLDECL_END_COMPLETED {
       # Okay, I do not understand how this can happen since the grammar will reject these
       # characters.
       #
-      if ($decl =~ /[\x{85}\x{2028}]/) {
+      if ($decl =~ /[\x{85}\x{2028}]/p) {
         DeclException->throw("Invalid character \\x{" . sprintf('%X', ord(${^MATCH}) . "}"), decl => $decl);
       }
     }
