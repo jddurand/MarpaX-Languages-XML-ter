@@ -24,10 +24,7 @@ lexeme default = action => [start,length,value,name] forgiving => 1
 # start                         ::= document | extParsedEnt | extSubset
 start                         ::= $START
 MiscAny                       ::= Misc*
-#
-# start_document and end_document are hardcoded in the parser
-#
-document                      ::= prolog element MiscAny
+document                      ::= (internal_event_for_immediate_pause) prolog rootElement MiscAny
 Name                          ::= NAME
 Names                         ::= Name+ separator => SPACE proper => 1
 Nmtoken                       ::= NMTOKENMANY
@@ -137,17 +134,23 @@ SDDecl                        ::= S STANDALONE Eq SQUOTE YES SQUOTE # [VC: Stand
 # the internal_event_for_immediate_pause event
 # On the other hand, end_element does match the end of the element rule
 #
-element                       ::= (internal_event_for_immediate_pause) EmptyElemTag (start_element) (end_element)
-                                | (internal_event_for_immediate_pause) STag (start_element) content ETag (end_element) # [WFC: Element Type Match] [VC: Element Valid]
+rootElement                   ::=                                      RootEmptyElemTag (start_element)                  (end_element)
+                                |                                      RootSTag         (start_element) content RootETag (end_element) # [WFC: Element Type Match] [VC: Element Valid]
+element                       ::= (internal_event_for_immediate_pause)     EmptyElemTag (start_element)                  (end_element)
+                                | (internal_event_for_immediate_pause)     STag         (start_element) content     ETag (end_element) # [WFC: Element Type Match] [VC: Element Valid]
 STagUnit                      ::= S Attribute
 STagUnitAny                   ::= STagUnit*
 STagName                      ::= Name
-STag                          ::= ELEMENT_START STagName STagUnitAny S ELEMENT_END # [WFC: Unique Att Spec]
-STag                          ::= ELEMENT_START STagName STagUnitAny   ELEMENT_END # [WFC: Unique Att Spec]
+RootSTag                      ::= ROOT_ELEMENT_START STagName STagUnitAny S ROOT_ELEMENT_END # [WFC: Unique Att Spec]
+RootSTag                      ::= ROOT_ELEMENT_START STagName STagUnitAny   ROOT_ELEMENT_END # [WFC: Unique Att Spec]
+STag                          ::=      ELEMENT_START STagName STagUnitAny S      ELEMENT_END # [WFC: Unique Att Spec]
+STag                          ::=      ELEMENT_START STagName STagUnitAny        ELEMENT_END # [WFC: Unique Att Spec]
 AttributeName                 ::= Name
 Attribute                     ::= AttributeName Eq AttValue  # [VC: Attribute Value Type] [WFC: No External Entity References] [WFC: No < in Attribute Values]
-ETag                          ::= ETAG_START Name S ETAG_END
-ETag                          ::= ETAG_START Name   ETAG_END
+RootETag                      ::= ROOT_ETAG_START Name S ROOT_ETAG_END
+RootETag                      ::= ROOT_ETAG_START Name   ROOT_ETAG_END
+ETag                          ::=      ETAG_START Name S      ETAG_END
+ETag                          ::=      ETAG_START Name        ETAG_END
 contentUnit                   ::= element CharData
                                 | element
                                 | Reference CharData
@@ -159,13 +162,14 @@ contentUnit                   ::= element CharData
                                 | Comment CharData
                                 | Comment
 contentUnitAny                ::= contentUnit*
-content                       ::= (content_NULLED) _content (content_NULLED)
-_content                      ::= CharData contentUnitAny
-_content                      ::=          contentUnitAny
+content                       ::= CharData contentUnitAny
+content                       ::=          contentUnitAny
 EmptyElemTagUnit              ::= S Attribute
 EmptyElemTagUnitAny           ::= EmptyElemTagUnit*
-EmptyElemTag                  ::= ELEMENT_START Name EmptyElemTagUnitAny S EMPTYELEM_END   # [WFC: Unique Att Spec]
-EmptyElemTag                  ::= ELEMENT_START Name EmptyElemTagUnitAny   EMPTYELEM_END   # [WFC: Unique Att Spec]
+RootEmptyElemTag              ::= ROOT_ELEMENT_START Name EmptyElemTagUnitAny S ROOT_EMPTYELEM_END   # [WFC: Unique Att Spec]
+RootEmptyElemTag              ::= ROOT_ELEMENT_START Name EmptyElemTagUnitAny   ROOT_EMPTYELEM_END   # [WFC: Unique Att Spec]
+EmptyElemTag                  ::=      ELEMENT_START Name EmptyElemTagUnitAny S      EMPTYELEM_END   # [WFC: Unique Att Spec]
+EmptyElemTag                  ::=      ELEMENT_START Name EmptyElemTagUnitAny        EMPTYELEM_END   # [WFC: Unique Att Spec]
 elementdecl                   ::= ELEMENTDECL_START S Name S contentspec S ELEMENTDECL_END # [VC: Unique Element Type Declaration]
 elementdecl                   ::= ELEMENTDECL_START S Name S contentspec   ELEMENTDECL_END # [VC: Unique Element Type Declaration]
 contentspec                   ::= EMPTY | ANY | Mixed | children
@@ -348,10 +352,15 @@ _RBRACKET ~ __ANYTHING
 _STANDALONE ~ __ANYTHING
 _YES ~ __ANYTHING
 _NO ~ __ANYTHING
+_ROOT_ELEMENT_START ~ __ANYTHING
 _ELEMENT_START ~ __ANYTHING
+_ROOT_ELEMENT_END ~ __ANYTHING
 _ELEMENT_END ~ __ANYTHING
+_ROOT_ETAG_START ~ __ANYTHING
 _ETAG_START ~ __ANYTHING
+_ROOT_ETAG_END ~ __ANYTHING
 _ETAG_END ~ __ANYTHING
+_ROOT_EMPTYELEM_END ~ __ANYTHING
 _EMPTYELEM_END ~ __ANYTHING
 _ELEMENTDECL_START ~ __ANYTHING
 _ELEMENTDECL_END ~ __ANYTHING
@@ -463,10 +472,15 @@ RBRACKET ::= _RBRACKET
 STANDALONE ::= _STANDALONE
 YES ::= _YES
 NO ::= _NO
+ROOT_ELEMENT_START ::= _ROOT_ELEMENT_START
 ELEMENT_START ::= _ELEMENT_START
+ROOT_ELEMENT_END ::= _ROOT_ELEMENT_END
 ELEMENT_END ::= _ELEMENT_END
+ROOT_ETAG_START ::= _ROOT_ETAG_START
 ETAG_START ::= _ETAG_START
+ROOT_ETAG_END ::= _ROOT_ETAG_END
 ETAG_END ::= _ETAG_END
+ROOT_EMPTYELEM_END ::= _ROOT_EMPTYELEM_END
 EMPTYELEM_END ::= _EMPTYELEM_END
 ELEMENTDECL_START ::= _ELEMENTDECL_START
 ELEMENTDECL_END ::= _ELEMENTDECL_END
@@ -539,7 +553,6 @@ COLON ::= _COLON
 #
 event '!internal_event_for_immediate_pause' = nulled <internal_event_for_immediate_pause>
 internal_event_for_immediate_pause ::= ;
-content_NULLED ::= ;
 #
 # Nullable rules
 #
@@ -562,12 +575,18 @@ Prefix             ::= NCName
 LocalPart          ::= NCName
 
 __[ xmlns10:replace_or_add ]__
-STag               ::= ELEMENT_START QName STagUnitAny S ELEMENT_END           # [NSC: Prefix Declared]
-STag               ::= ELEMENT_START QName STagUnitAny   ELEMENT_END           # [NSC: Prefix Declared]
-ETag               ::= ETAG_START QName S ETAG_END                             # [NSC: Prefix Declared]
-ETag               ::= ETAG_START QName   ETAG_END                             # [NSC: Prefix Declared]
-EmptyElemTag       ::= ELEMENT_START QName EmptyElemTagUnitAny S EMPTYELEM_END # [NSC: Prefix Declared]
-EmptyElemTag       ::= ELEMENT_START QName EmptyElemTagUnitAny   EMPTYELEM_END # [NSC: Prefix Declared]
+RootSTag           ::= ROOT_ELEMENT_START QName STagUnitAny S ROOT_ELEMENT_END # [NSC: Prefix Declared]
+RootSTag           ::= ROOT_ELEMENT_START QName STagUnitAny   ROOT_ELEMENT_END # [NSC: Prefix Declared]
+STag               ::=      ELEMENT_START QName STagUnitAny S      ELEMENT_END # [NSC: Prefix Declared]
+STag               ::=      ELEMENT_START QName STagUnitAny        ELEMENT_END # [NSC: Prefix Declared]
+RootETag           ::= ROOT_ETAG_START QName S ROOT_ETAG_END                   # [NSC: Prefix Declared]
+RootETag           ::= ROOT_ETAG_START QName   ROOT_ETAG_END                   # [NSC: Prefix Declared]
+ETag               ::=      ETAG_START QName S      ETAG_END                             # [NSC: Prefix Declared]
+ETag               ::=      ETAG_START QName        ETAG_END                             # [NSC: Prefix Declared]
+RootEmptyElemTag   ::= ROOT_ELEMENT_START QName EmptyElemTagUnitAny S ROOT_EMPTYELEM_END # [NSC: Prefix Declared]
+RootEmptyElemTag   ::= ROOT_ELEMENT_START QName EmptyElemTagUnitAny   ROOT_EMPTYELEM_END # [NSC: Prefix Declared]
+EmptyElemTag       ::=      ELEMENT_START QName EmptyElemTagUnitAny S      EMPTYELEM_END # [NSC: Prefix Declared]
+EmptyElemTag       ::=      ELEMENT_START QName EmptyElemTagUnitAny        EMPTYELEM_END # [NSC: Prefix Declared]
 Attribute          ::= NSAttName (xmlns_attribute) Eq AttValue
 Attribute          ::= QName (normal_attribute) Eq AttValue                                            # [NSC: Prefix Declared][NSC: No Prefix Undeclaring][NSC: Attributes Unique]
 doctypedeclUnit    ::= markupdecl | PEReference | S
@@ -750,9 +769,8 @@ contentUnit                   ::= element CharData
                                 | Comment CharData
                                 | Comment
 contentUnitAny                ::= contentUnit*
-content                       ::= (content_NULLED) _content (content_NULLED)
-_content                      ::= CharData contentUnitAny
-_content                      ::=          contentUnitAny
+content                       ::= CharData contentUnitAny
+content                       ::=          contentUnitAny
 EmptyElemTagUnit              ::= S Attribute
 EmptyElemTagUnitAny           ::= EmptyElemTagUnit*
 EmptyElemTag                  ::= ELEMENT_START Name EmptyElemTagUnitAny S EMPTYELEM_END   # [WFC: Unique Att Spec]

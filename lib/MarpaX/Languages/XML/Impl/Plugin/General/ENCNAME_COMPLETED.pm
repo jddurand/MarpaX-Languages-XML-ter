@@ -26,6 +26,7 @@ class MarpaX::Languages::XML::Impl::Plugin::General::ENCNAME_COMPLETED {
   method N_ENCNAME_COMPLETED(Dispatcher $dispatcher, Parser $parser, Context $context --> PluggableConstant) {
     #
     # Get declared encoding
+    # This has a cost but happens only once
     #
     my $encnameId = $context->grammar->compiledGrammar->symbol_by_name_hash->{'_ENCNAME'};
     my $encname = $parser->get_lastLexeme($encnameId);
@@ -42,7 +43,7 @@ class MarpaX::Languages::XML::Impl::Plugin::General::ENCNAME_COMPLETED {
       $self->_logger->tracef('XML and IO agree with encoding %s', $encname);
     }
 
-    return EAT_CLIENT   # No ';' for fewer hops
+    return EAT_CLIENT;
   }
 
   with 'MooX::Role::Logger';

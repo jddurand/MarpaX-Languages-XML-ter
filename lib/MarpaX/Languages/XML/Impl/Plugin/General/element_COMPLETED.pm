@@ -2,9 +2,9 @@ use Moops;
 
 # PODCLASSNAME
 
-# ABSTRACT: XMLDECL_END_COMPLETED Grammar Event implementation
+# ABSTRACT: element_COMPLETED Grammar Event implementation
 
-class MarpaX::Languages::XML::Impl::Plugin::General::XMLDECL_END_COMPLETED {
+class MarpaX::Languages::XML::Impl::Plugin::General::element_COMPLETED {
   use MarpaX::Languages::XML::Impl::ImmediateAction::Constant;
   use MarpaX::Languages::XML::Impl::Plugin;
   use MarpaX::Languages::XML::Type::PluggableConstant -all;
@@ -18,16 +18,16 @@ class MarpaX::Languages::XML::Impl::Plugin::General::XMLDECL_END_COMPLETED {
 
   has '+subscriptions' => (default => sub { return
                                               {
-                                               NOTIFY => [ 'XMLDECL_END_COMPLETED' ]
+                                               NOTIFY => [ 'element_COMPLETED' ]
                                               };
                                           }
                           );
 
-  method N_XMLDECL_END_COMPLETED(Dispatcher $dispatcher, Parser $parser, Context $context --> PluggableConstant) {
+  method N_element_COMPLETED(Dispatcher $dispatcher, Parser $parser, Context $context --> PluggableConstant) {
     #
-    # Say we are not anymore in a declaration
+    # Say stop
     #
-    $parser->inDecl(false);
+    $context->immediateAction(IMMEDIATEACTION_STOP);
 
     return EAT_CLIENT;
   }

@@ -146,20 +146,18 @@ class MarpaX::Languages::XML::Impl::Parser {
     return {
             document => {
                          completed => {
-                                       ENCNAME_COMPLETED       => 'ENCNAME',
-                                       XMLDECL_END_COMPLETED   => 'XMLDECL_END',
-                                       VERSIONNUM_COMPLETED    => 'VERSIONNUM',
-                                       STag_COMPLETED          => 'STag',
-                                       document_COMPLETED      => 'document'
-                                      },
+                                       ENCNAME_COMPLETED                           => 'ENCNAME',
+                                       XMLDECL_END_COMPLETED                       => 'XMLDECL_END',
+                                       VERSIONNUM_COMPLETED                        => 'VERSIONNUM',
+                                       ELEMENT_START_COMPLETED                     => 'ELEMENT_START',  # Element push
+                                       $self->get_grammar_endEventName('document') => 'document'
+                                      }
                         },
-            content => {
+            element => {
                         completed => {
-                                      STag_COMPLETED          => 'STag'
-                                     },
-                        nulled => {
-                                   content_NULLED => $self->get_grammar_endEventName('content')
-                                  }
+                                      ELEMENT_START_COMPLETED                     => 'ELEMENT_START',  # Element push
+                                      $self->get_grammar_endEventName('element')   => 'element' # Element pop
+                                     }
                        }
            };
   }
@@ -167,13 +165,13 @@ class MarpaX::Languages::XML::Impl::Parser {
   method _build__grammars_endEventName( --> HashRef[Str]) {
     return {
             document => 'document_COMPLETED',
-            content  => 'content_NULLED'
+            element  => 'element_COMPLETED'
            };
   }
 
   method _build__grammars( --> HashRef[Grammar]) {
     my %grammars = ();
-    foreach (qw/document content/) {
+    foreach (qw/document element/) {
       $grammars{$_} = MarpaX::Languages::XML::Impl::Grammar->new(
                                                                  xmlVersion  => $self->xmlVersion,
                                                                  xmlns       => $self->xmlns,
@@ -392,6 +390,9 @@ class MarpaX::Languages::XML::Impl::Parser {
               return $self;
             } elsif ($immediateAction == IMMEDIATEACTION_RESTART) {
               $self->_logger->tracef('[%d]%s IMMEDIATEACTION_RESTART', $self->count_contexts, $startSymbol);
+              return $self;
+            } elsif ($immediateAction == IMMEDIATEACTION_RESUME) {
+              $self->_logger->tracef('[%d]%s IMMEDIATEACTION_RESUME', $self->count_contexts, $startSymbol);
               return $self;
             } elsif ($immediateAction == IMMEDIATEACTION_STOP) {
               $self->_logger->tracef('[%d]%s IMMEDIATEACTION_STOP', $self->count_contexts, $startSymbol);

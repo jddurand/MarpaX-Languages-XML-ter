@@ -27,6 +27,7 @@ class MarpaX::Languages::XML::Impl::Plugin::General::VERSIONNUM_COMPLETED {
   method N_VERSIONNUM_COMPLETED(Dispatcher $dispatcher, Parser $parser, Context $context --> PluggableConstant) {
     #
     # Get declared version number
+    # This has a cost but happens only once.
     #
     my $versionnumId = $context->grammar->compiledGrammar->symbol_by_name_hash->{'_VERSIONNUM'};
     my $versionnum = $parser->get_lastLexeme($versionnumId);
@@ -47,20 +48,18 @@ class MarpaX::Languages::XML::Impl::Plugin::General::VERSIONNUM_COMPLETED {
                                                                      )
                           );
       #
-      # Make sure IO is resetted as well. Setting the encoding will do it.
+      # Make sure IO is resetted as well.
       #
       $parser->io->reopen;
       #
-      # And say to restart (Caller is still using the old context pointer)
+      # And say to restart (Parser will refetch the contex)
       #
-      # Not needed
-      # $context->restartRecognizer;
       $context->immediateAction(IMMEDIATEACTION_RESTART);
     } else {
       $self->_logger->tracef('XML and Grammar agree with version number %s', $versionnum);
     }
 
-    return EAT_CLIENT   # No ';' for fewer hops
+    return EAT_CLIENT;
   }
 
   with 'MooX::Role::Logger';

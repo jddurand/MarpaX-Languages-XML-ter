@@ -16,13 +16,13 @@ class MarpaX::Languages::XML::Impl::Context {
   use MooX::HandlesVia;
   use Types::Common::Numeric -all;
 
-  has grammar          => ( is => 'rwp',  isa => Grammar,           required => 1, trigger => 1 );
-  has endEventName     => ( is => 'rwp',  isa => Str,               required => 1 );
-  has recognizer       => ( is => 'rwp',  isa => Recognizer,        init_arg => undef );
-  has line             => ( is => 'rw',   isa => PositiveOrZeroInt, default => 1 );
-  has column           => ( is => 'rw',   isa => PositiveOrZeroInt, default => 1 );
-  has immediateAction => ( is => 'rw', isa => ImmediateAction, default => IMMEDIATEACTION_NONE );
-  has parentContext   => ( is => 'rw', isa => Context|Undef, default => undef );
+  has grammar         => ( is => 'rwp', isa => Grammar,           required => 1, trigger => 1 );
+  has endEventName    => ( is => 'ro',  isa => Str,               required => 1 );
+  has recognizer      => ( is => 'rwp', isa => Recognizer,        init_arg => undef );
+  has line            => ( is => 'rw',  isa => PositiveOrZeroInt, default => 1 );
+  has column          => ( is => 'rw',  isa => PositiveOrZeroInt, default => 1 );
+  has immediateAction => ( is => 'rw',  isa => ImmediateAction,   default => IMMEDIATEACTION_NONE );
+  has parentContext   => ( is => 'rw',  isa => Context|Undef,     default => undef );
 
   method DEMOLISH {
     my $parentContext = $self->parentContext;
