@@ -82,7 +82,6 @@ class MarpaX::Languages::XML::Impl::Parser {
   # (regardless of the encoding currently in use).
   #
   class_has _firstReadCharacterLength => ( is => 'ro', isa => PositiveInt, default => 71 );
-  has _eof            => ( is => 'rw',  isa => Bool,              default => false, trigger => 1 );
   has _dispatcher     => ( is => 'rw',  isa => Dispatcher, lazy => 1, clearer => 1, builder => 1);
   has _contexts       => ( is => 'rw',  isa => ArrayRef[Context], default => sub { [] }, 
                            handles_via => 'Array', handles => {
@@ -102,10 +101,6 @@ class MarpaX::Languages::XML::Impl::Parser {
 
   method _trigger_inDecl(Bool $inDecl) {
     $self->_logger->tracef('Setting inDecl boolean to %s', $inDecl ? 'true' : 'false');
-  }
-
-  method _trigger__eof(Bool $eof) {
-    $self->_logger->tracef('Setting eof boolean to %s', $eof ? 'true' : 'false');
   }
 
   method _build__dispatcher( --> Dispatcher)  {
@@ -301,8 +296,21 @@ class MarpaX::Languages::XML::Impl::Parser {
 
   method read(Dispatcher $dispatcher, Context $context --> Parser) {
 
-    $self->io->read;
-    $dispatcher->process('EOL', $self, $context);
+    #
+    # We manipulate buffer like this because we want the EOL event plugin
+    # to work on everything that has just been read, for a question of
+    # performance of the regexps used by the EOL plugin.
+    #
+    my $localBuffer = '';
+    $self->io->buffer(\$localBuffer);
+
+    do {
+      $self->io->read;
+    } while (($dispatcher->process('EOL', $self, $context, $localBuffer) == EAT_NONE) &&
+             ! $self->io->eof);
+
+    $MarpaX::Languages::XML::Impl::Parser::buffer .= $localBuffer;
+    $self->io->buffer(\$MarpaX::Languages::XML::Impl::Parser::buffer);
 
     return $self;
   }
@@ -409,7 +417,7 @@ class MarpaX::Languages::XML::Impl::Parser {
         my $max_length = 0;
         if (@terminals_expected_to_symbol_ids) {
           if ($length <= 0) {
-            if ($self->_eof) {
+            if ($self->io->eof) {
               if ($canStop || $previousCanStop) {
                 $self->_pop_context;
                 return $self;
@@ -420,7 +428,6 @@ class MarpaX::Languages::XML::Impl::Parser {
               $self->read($dispatcher, $context);
               $length = length($MarpaX::Languages::XML::Impl::Parser::buffer);
               if ($length <= 0) {
-                $self->_eof(true);
                 if ($canStop || $previousCanStop) {
                   $self->_pop_context;
                   return $self;
@@ -433,7 +440,7 @@ class MarpaX::Languages::XML::Impl::Parser {
             }
           }
           my @undecidable = grep { $lexeme_minlength_by_symbol_ids[$_] > $remaining } @terminals_expected_to_symbol_ids;
-          if (@undecidable && ! $self->_eof) {
+          if (@undecidable && ! $self->io->eof) {
 
             my $wanted = max(map { $lexeme_minlength_by_symbol_ids[$_] } @undecidable);
             my $needed = $wanted  - $remaining;
@@ -453,8 +460,6 @@ class MarpaX::Languages::XML::Impl::Parser {
               #
               $remaining = $new_remaining;
               last;
-            } else {
-              $self->_eof(true);
             }
 
           }
@@ -473,7 +478,7 @@ class MarpaX::Languages::XML::Impl::Parser {
             #
             # Match reaches end of buffer ?
             #
-            if (($length_matched_data >= $remaining) && (! $self->_eof)) { # Match up to the end of buffer is avoided as much as possible
+            if (($length_matched_data >= $remaining) && (! $self->io->eof)) { # Match up to the end of buffer is avoided as much as possible
               if (! $self->inDecl) {
                 $self->_reduce($context)->read($dispatcher, $context);
                 $pos = pos($MarpaX::Languages::XML::Impl::Parser::buffer) = 0;
@@ -490,8 +495,6 @@ class MarpaX::Languages::XML::Impl::Parser {
                 $remaining = $new_remaining;
                 $terminals_expected_again = 1;
                 last;
-              } else {
-                $self->_eof(true);
               }
             }
             #

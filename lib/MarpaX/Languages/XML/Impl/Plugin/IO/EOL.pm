@@ -4,7 +4,7 @@ use Moops;
 
 # ABSTRACT: End-of-line plugin implementation
 
-class MarpaX::Languages::XML::Impl::Plugin::IO::EOL :assertions {
+class MarpaX::Languages::XML::Impl::Plugin::IO::EOL {
   use MarpaX::Languages::XML::Impl::Plugin;
   use MarpaX::Languages::XML::Type::PluggableConstant -all;
   use MarpaX::Languages::XML::Type::Context -all;
@@ -30,11 +30,38 @@ class MarpaX::Languages::XML::Impl::Plugin::IO::EOL :assertions {
     $_impl = ($self->xmlVersion eq '1.0') ? \&_impl10 : \&_impl11;
   };
 
-  method _impl11(Dispatcher $dispatcher, Parser $parser, Context $context --> PluggableConstant) {
+  sub _impl11 {
+    my ($self, $dispatcher, $parser, $context, undef) = @_;
+    #
+    # Buffer is in $_[4]
+    #
+    if (substr($_[4], -1, 1) eq "\x{D}") {
+      $self->_logger->tracef('Last character in buffer is \\x{D} and requires another read');
+      return EAT_PLUGIN;
+    }
+
+    $_[4] =~ s/\x{D}\x{A}/\x{A}/g;
+    $_[4] =~ s/\x{D}\x{85}/\x{A}/g;
+    $_[4] =~ s/\x{85}/\x{A}/g;
+    $_[4] =~ s/\x{2028}/\x{A}/g;
+    $_[4] =~ s/\x{D}/\x{A}/g;
+
     return EAT_CLIENT;
   }
 
-  method _impl10(Dispatcher $dispatcher, Parser $parser, Context $context --> PluggableConstant) {
+  sub _impl10 {
+    my ($self, $dispatcher, $parser, $context, undef) = @_;
+    #
+    # Buffer is in $_[4]
+    #
+    if (substr($_[4], -1, 1) eq "\x{D}") {
+      $self->_logger->tracef('Last character in buffer is \\x{D} and requires another read');
+      return EAT_PLUGIN;
+    }
+
+    $_[4] =~ s/\x{D}\x{A}/\x{A}/g;
+    $_[4] =~ s/\x{D}/\x{A}/g;
+
     return EAT_CLIENT;
   }
 

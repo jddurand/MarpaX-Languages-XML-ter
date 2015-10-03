@@ -24,6 +24,7 @@ role MarpaX::Languages::XML::Role::IO {
   requires 'encoding';
   requires 'encodingName';
   requires 'buffer';
+  requires 'eof';
 
 }
 

@@ -116,6 +116,11 @@ class MarpaX::Languages::XML::Impl::IO {
     return $self;
   }
 
+  method eof(@args --> Bool) {
+
+    return $self->_io->eof;
+  }
+
   method block_size_value(@args --> PositiveInt) {
 
     my $rc = $self->_block_size_value(@args);
