@@ -28,7 +28,7 @@ class MarpaX::Languages::XML::Impl::Plugin::General::XMLDECL_END_COMPLETED {
   method N_XMLDECL_END_COMPLETED(Dispatcher $dispatcher, Parser $parser, Context $context --> PluggableConstant) {
     #
     # We guaranteed that the buffer was not reduced. Therefore, from positions 0 up to pos(), this is
-    # the declaration. And there declaration specific rules.
+    # the declaration. And there is a declaration specific rule.
     #
     if ($self->xmlVersion eq '1.1') {
       my $pos = pos($MarpaX::Languages::XML::Impl::Parser::buffer);
