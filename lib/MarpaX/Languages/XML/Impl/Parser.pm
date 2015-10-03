@@ -108,7 +108,7 @@ class MarpaX::Languages::XML::Impl::Parser {
     $self->_logger->tracef('Setting eof boolean to %s', $eof ? 'true' : 'false');
   }
 
-  method _build__dispatcher( --> Dispatcher) {
+  method _build__dispatcher( --> Dispatcher)  {
     my $dispatcher    = MarpaX::Languages::XML::Impl::Dispatcher->new();
     #
     # Events are:

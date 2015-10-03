@@ -6,6 +6,7 @@ use Moops;
 
 class MarpaX::Languages::XML::Impl::Encoding {
   use Config;
+  use Encode qw/encode decode/;
   use Encode::Guess;
   use MarpaX::Languages::XML::Role::Encoding;
   use MarpaX::Languages::XML::Type::Encoding -all;
@@ -165,19 +166,48 @@ class MarpaX::Languages::XML::Impl::Encoding {
         $self->_guess(uc($enc->name || ''));
       } catch {
         $self->_logger->tracef('Encoding guess failure, %s', "$_");
-      }
+        return;
+      };
     }
-
-    if ($self->_guess eq 'ASCII') {
+    if ($self->_length__guess > 0) {
+      $self->_logger->tracef('Guessed encoding %s', $self->_guess);
       #
-      # Ok, ASCII is UTF-8 compatible. Let's say UTF-8 - much more probable
+      # Are we lucky enough to match an xml declaration ?
       #
-      $self->_logger->tracef('Revisiting encoding guess "%s" to "UTF-8"', $self->_guess);
-      $self->_guess('UTF-8');
+      try {
+        #
+        # Decode as much as possible
+        #
+        my $string = decode($self->_guess, $bytes, Encode::FB_QUIET);
+        if ($string =~ /<\?xml(?:\sversion=(?:(?:"1\.[01]\")|(?:'1\.[01]\')))?\sencoding=((?:"[A-Za-z][A-Za-z0-9._\-]*+")|(?:'[A-Za-z][A-Za-z0-9._\-]*+'))/) {
+          my $encname = substr($string, $-[1], $+[1] - $-[1]);
+          substr($encname,  0, 1, '');   # first  ["']
+          substr($encname, -1, 1, '');   # second ["']
+          $self->_logger->tracef('XML declaration pre-detected using guessed encoding %s and says encoding is %s', $self->_guess, $encname);
+          #
+          # Verify this is a valid encoding
+          #
+          try {
+            my $octets  = encode($encname, $string, Encode::FB_CROAK);
+            $self->_logger->tracef('Success verifying XML declared encoding %s', $encname);
+            $self->_guess($encname);
+          } catch {
+            $self->_logger->tracef('Failed to verify XML declared encoding %s: %s', $encname, $_);
+            return;
+          };
+        } else {
+          $self->_logger->tracef('Failed to find XML declaration using guessed encoding %s, staying with it', $self->_guess);
+        }
+      } catch {
+        $self->_logger->tracef('Failed to try guessed encoding %s: %s', $self->_guess, $_);
+        $self->_logger->tracef('Falling back to UTF-8');
+        $self->_guess('UTF-8');
+        return;
+      };
     }
 
     if ($self->_length__guess > 0) {
-      $self->_logger->debugf('Guessed encoding "%s"', $self->_guess);
+      $self->_logger->debugf('Final guessed encoding is %s"', $self->_guess);
     } else {
       $self->_logger->debugf('No encoding guess');
     }
