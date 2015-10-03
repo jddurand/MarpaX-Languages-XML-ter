@@ -40,11 +40,14 @@ class MarpaX::Languages::XML::Impl::Plugin::IO::EOL {
       return EAT_PLUGIN;
     }
 
-    $_[4] =~ s/\x{D}\x{A}/\x{A}/g;
-    $_[4] =~ s/\x{D}\x{85}/\x{A}/g;
-    $_[4] =~ s/\x{85}/\x{A}/g;
-    $_[4] =~ s/\x{2028}/\x{A}/g;
-    $_[4] =~ s/\x{D}/\x{A}/g;
+    my %replaced;
+    $replaced{"\x{D}\x{A}"}   += $_[4] =~ s/\x{D}\x{A}/\x{A}/g;
+    $replaced{"\x{D}\x{85}"}  += $_[4] =~ s/\x{D}\x{85}/\x{A}/g;
+    $replaced{"\x{85}"}       += $_[4] =~ s/\x{85}/\x{A}/g;
+    $replaced{"\x{2028}"}     += $_[4] =~ s/\x{2028}/\x{A}/g;
+    $replaced{"\x{D}"}        += $_[4] =~ s/\x{D}/\x{A}/g;
+
+    $self->_logger->tracef('EOL event replacement result is %s', \%replaced);
 
     return EAT_CLIENT;
   }
@@ -59,8 +62,11 @@ class MarpaX::Languages::XML::Impl::Plugin::IO::EOL {
       return EAT_PLUGIN;
     }
 
-    $_[4] =~ s/\x{D}\x{A}/\x{A}/g;
-    $_[4] =~ s/\x{D}/\x{A}/g;
+    my %replaced;
+    $replaced{"\x{D}\x{A}"}  += $_[4] =~ s/\x{D}\x{A}/\x{A}/g;
+    $replaced{"\x{D}"}       += $_[4] =~ s/\x{D}/\x{A}/g;
+
+    $self->_logger->tracef('EOL event replacement result is %s', \%replaced);
 
     return EAT_CLIENT;
   }
