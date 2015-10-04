@@ -81,14 +81,10 @@ class MarpaX::Languages::XML::Impl::IO {
     return $self;
   }
 
-  method DEMOLISH {
-    $self->_close();
-  }
-
   method _open(Str $source, @args --> IO) {
 
     $self->_logger->tracef('Opening %s %s', $source, \@args);
-    my $io = io($source)->autoclose(0)->open(@args);
+    my $io = io($source)->open(@args);
     $self->_io($io);
     #
     # Restore user buffer if there was one
