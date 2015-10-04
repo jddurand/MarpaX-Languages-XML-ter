@@ -363,9 +363,12 @@ class MarpaX::Languages::XML::Impl::Grammar {
   our %LEXEMES_REGEXP_SPECIFIC =
     (
      '1.0' => {
+               _CHAR => qr{\G[\x{9}\x{A}\x{D}\x{20}-\x{D7FF}\x{E000}-\x{FFFD}\x{10000}-\x{10FFFF}]}p,
               },
      '1.1' => {
-               _S                   => qr{\G[\x{20}\x{9}\x{D}\x{A}\x{85}\x{2028}]++}p,
+               _CHAR           => qr{\G[\x{1}-\x{D7FF}\x{E000}-\x{FFFD}\x{10000}-\x{10FFFF}]}p,
+               _RESTRICTEDCHAR => qr{\G[\x{1}-\x{8}\x{B}-\x{C}\x{E}-\x{1F}\x{7F}-\x{84}\x{86}-\x{9F}]}p,
+               _S              => qr{\G[\x{20}\x{9}\x{D}\x{A}\x{85}\x{2028}]++}p,
               }
     );
 

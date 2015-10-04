@@ -25,6 +25,7 @@ lexeme default = action => [start,length,value,name] forgiving => 1
 start                         ::= $START
 MiscAny                       ::= Misc*
 document                      ::= (internal_event_for_immediate_pause) prolog rootElement MiscAny
+Char                          ::= CHAR
 Name                          ::= NAME
 Names                         ::= Name+ separator => SPACE proper => 1
 Nmtoken                       ::= NMTOKENMANY
@@ -314,6 +315,7 @@ PublicID                      ::= PUBLIC S PubidLiteral
 # Generic internal token matching anything
 #
 __ANYTHING ~ [\s\S]
+_CHAR ~ __ANYTHING
 _NAME ~ __ANYTHING
 _NMTOKENMANY ~ __ANYTHING
 _ENTITYVALUEINTERIORDQUOTEUNIT ~ __ANYTHING
@@ -435,6 +437,7 @@ _XMLNSCOLON ~ __ANYTHING
 _XMLNS ~ __ANYTHING
 _COLON ~ __ANYTHING
 
+CHAR ::= _CHAR
 NAME ::= _NAME
 NMTOKENMANY ::= _NMTOKENMANY
 ENTITYVALUEINTERIORDQUOTEUNIT ::= _ENTITYVALUEINTERIORDQUOTEUNIT
@@ -644,6 +647,8 @@ MiscAny                       ::= Misc*
 # start_document and end_document are hardcoded in the parser
 #
 document                      ::= prolog element MiscAny
+Char                          ::= CHAR
+RestrictedChar                ::= RESTRICTEDCHAR
 Name                          ::= NAME
 Names                         ::= Name+ separator => SPACE proper => 1
 Nmtoken                       ::= NMTOKENMANY
@@ -925,6 +930,8 @@ PublicID                      ::= PUBLIC S PubidLiteral
 # Generic internal token matching anything
 #
 __ANYTHING ~ [\s\S]
+_CHAR ~ __ANYTHING
+_RESTRICTEDCHAR ~ __ANYTHING
 _NAME ~ __ANYTHING
 _NMTOKENMANY ~ __ANYTHING
 _ENTITYVALUEINTERIORDQUOTEUNIT ~ __ANYTHING
@@ -1041,6 +1048,8 @@ _XMLNSCOLON ~ __ANYTHING
 _XMLNS ~ __ANYTHING
 _COLON ~ __ANYTHING
 
+CHAR ::= _CHAR
+RESTRICTEDCHAR ::= _RESTRICTEDCHAR
 NAME ::= _NAME
 NMTOKENMANY ::= _NMTOKENMANY
 ENTITYVALUEINTERIORDQUOTEUNIT ::= _ENTITYVALUEINTERIORDQUOTEUNIT
