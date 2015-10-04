@@ -174,23 +174,29 @@ class MarpaX::Languages::XML::Impl::Parser {
                         },
             element => {
                         completed => {
-                                      ELEMENT_START_COMPLETED                     => 'ELEMENT_START',  # Element push
+                                      ELEMENT_START_COMPLETED                      => 'ELEMENT_START',  # Element push
                                       $self->get_grammar_endEventName('element')   => 'element' # Element pop
                                      }
-                       }
+                       },
+            Char => {
+                        completed => {
+                                      $self->get_grammar_endEventName('Char')      => 'Char'
+                                     }
+                       },
            };
   }
 
   method _build__grammars_endEventName( --> HashRef[Str]) {
     return {
             document => 'document_COMPLETED',
-            element  => 'element_COMPLETED'
+            element  => 'element_COMPLETED',
+            Char     => 'Char_COMPLETED'
            };
   }
 
   method _build__grammars( --> HashRef[Grammar]) {
     my %grammars = ();
-    foreach (qw/document element/) {
+    foreach (qw/document element Char/) {
       $grammars{$_} = MarpaX::Languages::XML::Impl::Grammar->new(
                                                                  xmlVersion  => $self->xmlVersion,
                                                                  xmlns       => $self->xmlns,
@@ -240,14 +246,14 @@ class MarpaX::Languages::XML::Impl::Parser {
     return $self;
   }
 
-  method parse(Str $source --> Int) {
+  method parse(Str|IO $source --> Int) {
     #
     # Prepare I/O
     # We want to handle buffer direcly with no COW: the buffer scalar is localized.
     # And have the block size as per the argument
     #
     local $MarpaX::Languages::XML::Impl::Parser::buffer = '';
-    $self->_set_io(MarpaX::Languages::XML::Impl::IO->new(source => $source));
+    $self->_set_io(IO->check($source) ? $source : MarpaX::Languages::XML::Impl::IO->new(source => $source));
     $self->io->buffer(\$MarpaX::Languages::XML::Impl::Parser::buffer);
     $self->io->block_size($self->blockSize);
     #
