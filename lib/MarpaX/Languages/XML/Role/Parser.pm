@@ -33,6 +33,8 @@ role MarpaX::Languages::XML::Role::Parser {
   requires 'namespaceSupport';
   requires 'line';
   requires 'column';
+  requires 'inDecl';
+  requires 'throw';
 
 }
 

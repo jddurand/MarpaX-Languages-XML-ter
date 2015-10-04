@@ -450,7 +450,8 @@ class MarpaX::Languages::XML::Impl::Grammar {
     # Return the common things (which are the XML1.0 regexps)
     # overloaded by the the XML1.1 changes
     #
-    return \(%LEXEMES_REGEXP_COMMON, %{$LEXEMES_REGEXP_SPECIFIC{$self->xmlVersion}});
+    my %hash = (%LEXEMES_REGEXP_COMMON, %{$LEXEMES_REGEXP_SPECIFIC{$self->xmlVersion}});
+    return \%hash;
   }
 
   method _build_lexemesMinlength {
@@ -458,7 +459,8 @@ class MarpaX::Languages::XML::Impl::Grammar {
     # Return the common things (which are the XML1.0 regexps)
     # overloaded by the the XML1.1 changes
     #
-    return \(%LEXEMES_MINLENGTH_COMMON, %{$LEXEMES_MINLENGTH_SPECIFIC{$self->xmlVersion}});
+    my %hash = (%LEXEMES_MINLENGTH_COMMON, %{$LEXEMES_MINLENGTH_SPECIFIC{$self->xmlVersion}});
+    return \%hash;
   }
 
   method _build_lexemesExclusionsRegexp {
@@ -466,7 +468,8 @@ class MarpaX::Languages::XML::Impl::Grammar {
     # Return the common things (which are the XML1.0 regexps)
     # overloaded by the the XML1.1 changes
     #
-    return \(%LEXEMESEXCLUSIONS_REGEXP_COMMON, %{$LEXEMESEXCLUSIONS_REGEXP_SPECIFIC{$self->xmlVersion}});
+    my %hash = (%LEXEMESEXCLUSIONS_REGEXP_COMMON, %{$LEXEMESEXCLUSIONS_REGEXP_SPECIFIC{$self->xmlVersion}});
+    return \%hash;
   }
 
   method _build_lexemesRegexpBySymbolId {

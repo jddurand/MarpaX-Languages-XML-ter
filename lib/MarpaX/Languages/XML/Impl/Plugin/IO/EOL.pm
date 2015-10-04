@@ -72,6 +72,13 @@ class MarpaX::Languages::XML::Impl::Plugin::IO::EOL {
   }
 
   sub P_EOL {
+    my ($self, $dispatcher, $parser, $context, undef) = @_;
+    #
+    # We suspend EOL handling until declaration is over.
+    # Parser guarantees that buffer is not reduced until
+    # this condition is false.
+    #
+    return EAT_CLIENT if ($parser->inDecl);
     #
     # Faster like this
     #

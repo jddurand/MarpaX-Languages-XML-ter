@@ -9,6 +9,7 @@ class MarpaX::Languages::XML::Impl::Parser {
   use Marpa::R2;
   use MarpaX::Languages::XML::Impl::Context;
   use MarpaX::Languages::XML::Impl::Dispatcher;
+  use MarpaX::Languages::XML::Impl::Exception;
   use MarpaX::Languages::XML::Impl::Grammar;
   use MarpaX::Languages::XML::Impl::ImmediateAction::Constant;
   use MarpaX::Languages::XML::Impl::IO;
@@ -16,6 +17,7 @@ class MarpaX::Languages::XML::Impl::Parser {
   use MarpaX::Languages::XML::Role::Parser;
   use MarpaX::Languages::XML::Type::Context -all;
   use MarpaX::Languages::XML::Type::Dispatcher -all;
+  use MarpaX::Languages::XML::Type::Exception -all;
   use MarpaX::Languages::XML::Type::Grammar -all;
   use MarpaX::Languages::XML::Type::NamespaceSupport -all;
   use MarpaX::Languages::XML::Type::IO -all;
@@ -203,20 +205,25 @@ class MarpaX::Languages::XML::Impl::Parser {
   }
 
   method _doEstimatedBestFirstRead(Dispatcher $dispatcher, Context $context--> Parser) {
-    my $needed = $self->_firstReadCharacterLength;
+    return $self->_readChars($dispatcher, $context, $self->_firstReadCharacterLength);
+  }
+
+  method _readChars(Dispatcher $dispatcher, Context $context, PositiveInt $wanted --> Parser) {
     my $io = $self->io;
 
     my $old_block_size_value = $io->block_size_value;
-    if ($old_block_size_value != $needed) {
-      $io->block_size($needed);
+    if ($old_block_size_value != $wanted) {
+      $io->block_size($wanted);
     }
     #
     # Per def $pos is 0 here
     #
     $self->read($dispatcher, $context);
-    if ($old_block_size_value != $needed) {
+    if ($old_block_size_value != $wanted) {
       $io->block_size($old_block_size_value);
     }
+
+    return $self;
   }
 
   method parse(Str $source --> Int) {
@@ -264,7 +271,7 @@ class MarpaX::Languages::XML::Impl::Parser {
       } while ($self->count_contexts);
     } catch {
       $self->_logger->errorf($_);
-      $self->rc(EXIT_FAILURE);
+      $self->_set_rc(EXIT_FAILURE);
       return;
     };
     $self->_dispatcher->notify('end_document', $self, $context);
@@ -294,6 +301,21 @@ class MarpaX::Languages::XML::Impl::Parser {
     return $self;
   }
 
+  method _readOneChar(Dispatcher $dispatcher, Context $context --> Parser) {
+    return $self->_readChars($dispatcher, $context, 1);
+  }
+
+  method throw(Exception $exception, Context $context, Str $message) {
+    "MarpaX::Languages::XML::Exception::Impl::$exception"->throw
+        (
+         Message      => $message,
+         LineNumber   => $self->line,
+         ColumnNumber => $self->column,
+         parser       => $self,
+         context      => $context
+        );
+  }
+
   method read(Dispatcher $dispatcher, Context $context --> Parser) {
 
     #
@@ -306,7 +328,8 @@ class MarpaX::Languages::XML::Impl::Parser {
 
     do {
       $self->io->read;
-    } while (($dispatcher->process('EOL', $self, $context, $localBuffer) == EAT_NONE) &&
+    } while (! $self->inDecl &&
+             ($dispatcher->process('EOL', $self, $context, $localBuffer) == EAT_NONE) &&
              ! $self->io->eof);
 
     $MarpaX::Languages::XML::Impl::Parser::buffer .= $localBuffer;
@@ -340,28 +363,41 @@ class MarpaX::Languages::XML::Impl::Parser {
         if ($immediateAction & IMMEDIATEACTION_RETURN) {
           $self->_logger->tracef('[%d/%d]%s IMMEDIATEACTION_RETURN', $count, $self->count_contexts, $startSymbol);
           $rc = false;
-          $context->immediateAction(IMMEDIATEACTION_NONE);
+          $context->immediateAction($immediateAction &= ~IMMEDIATEACTION_RETURN);
         }
         if ($immediateAction & IMMEDIATEACTION_POP_CONTEXT) {
           $self->_logger->tracef('[%d/%d]%s IMMEDIATEACTION_POP_CONTEXT', $count, $self->count_contexts, $startSymbol);
           $self->_pop_context;
-          $context->immediateAction(IMMEDIATEACTION_NONE);
+          $context->immediateAction($immediateAction &= ~IMMEDIATEACTION_POP_CONTEXT);
+        }
+        if ($immediateAction & IMMEDIATEACTION_READONECHAR) {
+          $self->_logger->tracef('[%d/%d]%s IMMEDIATEACTION_READONECHAR', $count, $self->count_contexts, $startSymbol);
+          #
+          # Remember current position
+          #
+          my $pos = pos($MarpaX::Languages::XML::Impl::Parser::buffer);
+          $self->_readOneChar($dispatcher, $context);
+          #
+          # Restore position
+          #
+          pos($MarpaX::Languages::XML::Impl::Parser::buffer) = $pos;
+          my $length = ${$lengthRef} = length($MarpaX::Languages::XML::Impl::Parser::buffer);
+          ${$remainingRef} = $length - $pos;
+          $context->immediateAction($immediateAction &= ~IMMEDIATEACTION_READONECHAR);
         }
         if ($immediateAction & IMMEDIATEACTION_REDUCE) {
           $self->_logger->tracef('[%d/%d]%s IMMEDIATEACTION_REDUCE', $count, $self->count_contexts, $startSymbol);
           $self->_reduce($context);
-          $context->immediateAction(IMMEDIATEACTION_NONE);
           my $pos = ${$posRef} = pos($MarpaX::Languages::XML::Impl::Parser::buffer) = 0;
           my $length = ${$lengthRef} = length($MarpaX::Languages::XML::Impl::Parser::buffer);
           ${$remainingRef} = $length - $pos;
+          $context->immediateAction($immediateAction &= ~IMMEDIATEACTION_REDUCE);
         }
-        #
-        # It is very important to test this bit in the LAST place: it can overwrite the immediateAction to
-        # something else but IMMEDIATEACTION_NONE
-        #
         if ($immediateAction & IMMEDIATEACTION_MARK_EVENTS_DONE) {
           $self->_logger->tracef('[%d/%d]%s IMMEDIATEACTION_MARK_EVENTS_DONE', $count, $self->count_contexts, $startSymbol);
-          $context->immediateAction(_IMMEDIATEACTION_EVENTS_DONE);
+          #
+          # Keep context as it is. The removal of this bit in delayed in _parse_generic()
+          #
         }
       }
     }
@@ -399,10 +435,12 @@ class MarpaX::Languages::XML::Impl::Parser {
     #
     # Infinite loop until user says to last or error
     #
-    if ($context->immediateAction != _IMMEDIATEACTION_EVENTS_DONE) {
-      my $doEventsRc = $self->_doEvents($dispatcher, $context, $startSymbol, $endEventName, $recognizer, \$canStop, \$pos, \$length, \$remaining);
-      $context->immediateAction(IMMEDIATEACTION_NONE);
-      return $self if (! $doEventsRc);
+    my $immediateAction = $context->immediateAction;
+    if ($immediateAction & IMMEDIATEACTION_MARK_EVENTS_DONE) {
+      $self->_logger->tracef('[%d/%d]%s Skipping first events at resume', $count, $self->count_contexts, $startSymbol);
+      $context->immediateAction($immediateAction &= ~IMMEDIATEACTION_MARK_EVENTS_DONE);
+    } else {
+      return $self if (! $self->_doEvents($dispatcher, $context, $startSymbol, $endEventName, $recognizer, \$canStop, \$pos, \$length, \$remaining));
     }
 
     while (1) {
@@ -422,7 +460,7 @@ class MarpaX::Languages::XML::Impl::Parser {
                 $self->_pop_context;
                 return $self;
               } else {
-                ParseException->throw("EOF but $startSymbol grammar is not over");
+                $self->throw('Parse', $context, "EOF but $startSymbol grammar is not over");
               }
             } else {
               $self->read($dispatcher, $context);
@@ -432,7 +470,7 @@ class MarpaX::Languages::XML::Impl::Parser {
                   $self->_pop_context;
                   return $self;
                 } else {
-                  ParseException->throw("EOF but $startSymbol grammar is not over");
+                  $self->throw('Parse', $context, "EOF but $startSymbol grammar is not over");
                 }
               }
               pos($MarpaX::Languages::XML::Impl::Parser::buffer) = 0;
@@ -519,7 +557,7 @@ class MarpaX::Languages::XML::Impl::Parser {
               $self->_pop_context;
               return $self;
             } else {
-              ParseException->throw('No predicted lexeme found');
+              $self->throw('Parse', $context, 'No predicted lexeme found');
             }
           }
           my $data = undef;
@@ -593,7 +631,7 @@ class MarpaX::Languages::XML::Impl::Parser {
             $self->_pop_context;
             return $self;
           } else {
-            ParseException->throw('No predicted lexeme found and end of grammar not reached');
+            $self->throw('Parse', $context, 'No predicted lexeme found and end of grammar not reached');
           }
         }
         last;
@@ -607,7 +645,7 @@ class MarpaX::Languages::XML::Impl::Parser {
     #
     # Never reached
     #
-    ParseException->throw('Internal error, this code should never be reached');
+    $self->throw('Parse', $context, 'Internal error, this code should never be reached');
   }
 
   with 'MarpaX::Languages::XML::Role::Parser';

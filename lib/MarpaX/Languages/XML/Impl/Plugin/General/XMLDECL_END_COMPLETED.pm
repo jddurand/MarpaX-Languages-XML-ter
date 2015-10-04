@@ -13,8 +13,6 @@ class MarpaX::Languages::XML::Impl::Plugin::General::XMLDECL_END_COMPLETED {
   use MarpaX::Languages::XML::Type::Parser -all;
   use MooX::Role::Logger;
   use MooX::Role::Pluggable::Constants;
-  use Throwable::Factory
-    DeclException => [ qw/$decl/ ];
 
   extends qw/MarpaX::Languages::XML::Impl::Plugin/;
 
@@ -29,24 +27,26 @@ class MarpaX::Languages::XML::Impl::Plugin::General::XMLDECL_END_COMPLETED {
     #
     # We guaranteed that the buffer was not reduced. Therefore, from positions 0 up to pos(), this is
     # the declaration. And there is a declaration specific rule.
+    # Please note that EOL handling was paused until this event.
     #
     if ($self->xmlVersion eq '1.1') {
       my $pos = pos($MarpaX::Languages::XML::Impl::Parser::buffer);
       my $decl = substr($MarpaX::Languages::XML::Impl::Parser::buffer, 0, $pos);
       #
-      # Okay, I do not understand how this can happen since the grammar will reject these
-      # characters.
+      # EOL handling was suspended until $parser->inDecl is true.
       #
       if ($decl =~ /[\x{85}\x{2028}]/p) {
-        DeclException->throw("Invalid character \\x{" . sprintf('%X', ord(${^MATCH}) . "}"), decl => $decl);
+        $parser->throw('Parse', $context, "Invalid character \\x{" . sprintf('%X', ord(${^MATCH})) . "} in declaration");
       }
     }
     #
-    # Say the buffer can be reduced
+    # Ask for at least one char more to trigger EOL handling and
+    # for the buffer to be reduced if possible.
+    # The parser will do these things in this order.
     #
-    $context->immediateAction(IMMEDIATEACTION_REDUCE);
+    $context->immediateAction(IMMEDIATEACTION_READONECHAR|IMMEDIATEACTION_REDUCE);
     #
-    # And that we are not anymore in a decl context
+    # Say we are not anymore in a decl context
     #
     $parser->inDecl(false);
 

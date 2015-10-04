@@ -14,8 +14,6 @@ class MarpaX::Languages::XML::Impl::Plugin::General::ENCNAME_COMPLETED {
   use MarpaX::Languages::XML::Type::Parser -all;
   use MooX::Role::Logger;
   use MooX::Role::Pluggable::Constants;
-  use Throwable::Factory
-    EncodingException => [qw/$encname/];
 
   extends qw/MarpaX::Languages::XML::Impl::Plugin/;
 
@@ -47,7 +45,7 @@ class MarpaX::Languages::XML::Impl::Plugin::General::ENCNAME_COMPLETED {
         my $octets  = encode($encname, $string, Encode::FB_CROAK);
         $self->_logger->tracef('Encoding %s is a supported name', $encname);
       } catch {
-        EncodingException->throw("Encoding verification failure: $_", encname => $encname);
+        $parser->throw('Parse', $context, "Encoding $encname verification failure: $_");
       };
       $self->_guess($encname);
 

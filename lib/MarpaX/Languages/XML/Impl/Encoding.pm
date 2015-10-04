@@ -16,6 +16,14 @@ class MarpaX::Languages::XML::Impl::Encoding {
   use MooX::HandlesVia;
   use Types::Common::Numeric -all;
 
+  #
+  # Largest possible notion of S before EOL handling [#x20|#x9|#xD|#xA|x#85|x#2028]
+  # regardless of the xml version (the parser will croak if it see x#58 or x#2028
+  # and xml version is 1.0). We use the Unicode Replacement Character U+FFFD as
+  # well so that the guess will not stop
+  #
+  our $S = qr/[\x{20}\x{9}\x{D}\x{A}\x{85}\x{2028}\x{FFFD}]++/;
+
   # VERSION
 
   # AUTHORITY
@@ -178,22 +186,31 @@ class MarpaX::Languages::XML::Impl::Encoding {
         #
         # Decode as much as possible
         #
-        my $string = decode($self->_guess, $bytes, Encode::FB_QUIET);
-        if ($string =~ /<\?xml(?:\sversion=(?:(?:"1\.[01]\")|(?:'1\.[01]\')))?\sencoding=((?:"[A-Za-z][A-Za-z0-9._\-]*+")|(?:'[A-Za-z][A-Za-z0-9._\-]*+'))/) {
+        my $string = decode($self->_guess, $bytes, Encode::FB_DEFAULT);
+        if ($string =~ /^<\?xml(?:${S}version=(?:(?:"1\.[01]\")|(?:'1\.[01]\')))?${S}encoding=((?:"[A-Za-z][A-Za-z0-9._\-]*+")|(?:'[A-Za-z][A-Za-z0-9._\-]*+'))/p) {
+          my $matched_data = ${^MATCH};
           my $encname = substr($string, $-[1], $+[1] - $-[1]);
           substr($encname,  0, 1, '');   # first  ["']
           substr($encname, -1, 1, '');   # second ["']
-          $self->_logger->tracef('XML declaration pre-detected using guessed encoding %s and says encoding is %s', $self->_guess, $encname);
+          #
+          # Have we encountered the replacement character ?
+          #
+          if ($matched_data =~ /[\x{FFFD}]/) {
+            $self->_logger->tracef('XML declaration pre-detected using guessed encoding %s and says encoding is %s - not all characters were reconized correctly', $self->_guess, $encname);
+          } else {
+            $self->_logger->tracef('XML declaration pre-detected using guessed encoding %s and says encoding is %s', $self->_guess, $encname);
+          }
           #
           # Verify this is a valid encoding
           #
           try {
             my $octets  = encode($encname, $string, Encode::FB_CROAK);
             $self->_logger->tracef('Success verifying XML declared encoding %s', $encname);
-            $self->_guess($encname);
           } catch {
-            $self->_logger->tracef('Failed to verify XML declared encoding %s: %s', $encname, $_);
+            $self->_logger->warnf('Failed to verify XML declared encoding %s: %s', $encname, $_);
             return;
+          } finally {
+            $self->_guess($encname);
           };
         } else {
           $self->_logger->tracef('Failed to find XML declaration using guessed encoding %s, staying with it', $self->_guess);
@@ -207,7 +224,7 @@ class MarpaX::Languages::XML::Impl::Encoding {
     }
 
     if ($self->_length__guess > 0) {
-      $self->_logger->debugf('Final guessed encoding is %s"', $self->_guess);
+      $self->_logger->debugf('Final guessed encoding is %s', $self->_guess);
     } else {
       $self->_logger->debugf('No encoding guess');
     }
