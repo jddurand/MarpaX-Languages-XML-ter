@@ -53,7 +53,7 @@ class MarpaX::Languages::XML::Impl::Grammar {
   has _bnf                    => ( is => 'rw', isa => Str,                                  lazy => 1, builder => 1 );
   has lexemesRegexpBySymbolId => (
                                   is  => 'ro',
-                                  isa => ArrayRef[RegexpRef|Undef],
+                                  isa => ArrayRef[Maybe[RegexpRef]],
                                   lazy  => 1,
                                   builder => 1,
                                   handles_via => 'Array',
@@ -63,7 +63,7 @@ class MarpaX::Languages::XML::Impl::Grammar {
                                  );
   has lexemesMinlengthBySymbolId => (
                                      is  => 'ro',
-                                     isa => ArrayRef[PositiveInt|Undef],
+                                     isa => ArrayRef[Maybe[PositiveInt]],
                                      lazy  => 1,
                                      builder => 1,
                                      handles_via => 'Array',
@@ -74,7 +74,7 @@ class MarpaX::Languages::XML::Impl::Grammar {
 
   has lexemesExclusionsRegexpBySymbolId => (
                                             is  => 'ro',
-                                            isa => ArrayRef[RegexpRef|Undef],
+                                            isa => ArrayRef[Maybe[RegexpRef]],
                                             lazy  => 1,
                                             builder => 1,
                                             handles_via => 'Array',
