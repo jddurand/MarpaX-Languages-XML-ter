@@ -112,7 +112,7 @@ class MarpaX::Languages::XML::Impl::IO {
     return $self;
   }
 
-  method eof(@args --> Bool) {
+  method eof( --> Bool) {
 
     return $self->_io->eof;
   }
