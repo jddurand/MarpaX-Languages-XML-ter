@@ -12,6 +12,7 @@ role MarpaX::Languages::XML::Role::Entity {
 
   requires 'type';
   requires 'name';
+  requires 'content';
 
 }
 
