@@ -43,7 +43,6 @@ class MarpaX::Languages::XML {
                                                      vc              => $self->vc,
                                                      blockSize       => $self->blocksize,
                                                      unicode_newline => $self->unicode_newline,
-                                                     startSymbol     => $self->start,
                                                      saxHandler      => $self->saxHandler);
   }
   # ---------------------------------------------------------------------------
@@ -95,16 +94,16 @@ class MarpaX::Languages::XML {
                       doc => q{Set log level. Default value: "WARN". Supported values: "DEBUG", "INFO", "WARN", "ERROR", "FATAL", "TRACE".},
                      );
   # ---------------------------------------------------------------------------
-  option start => (
-                   is => 'ro',
-                   isa => StartSymbol,
-                   default => 'document',
-                   #
-                   # Options
-                   #
-                   format => 's',
-                   doc => q{Start symbol. Default is "document". Supported values: "document", "extParsedEnt" and "extSubset".}
-                );
+  option startsymbol => (
+                         is => 'ro',
+                         isa => StartSymbol,
+                         default => 'document',
+                         #
+                         # Options
+                         #
+                         format => 's',
+                         doc => q{Start symbol. Default is "document". Supported values: "document", "extParsedEnt", "extSubset", "Char".}
+                        );
   # ---------------------------------------------------------------------------
   option xmlversion => (
                         is => 'ro',

@@ -17,7 +17,6 @@ role MarpaX::Languages::XML::Role::Parser {
   requires 'blockSize';
   requires 'parse';
   requires 'rc';
-  requires 'startSymbol';
   requires 'get_grammar';
   requires 'get_grammar_endEventName';
   requires 'count_contexts';
@@ -26,7 +25,6 @@ role MarpaX::Languages::XML::Role::Parser {
   requires 'lastLexemes';
   requires 'get_lastLexeme';
   requires 'set_lastLexeme';
-  requires 'io';
   requires 'saxHandler';
   requires 'get_saxHandle';
   requires 'exists_saxHandle';

@@ -5,6 +5,7 @@ use Moops;
 use Log::Any qw/$log/;
 use Log::Any::Adapter;
 use Log::Log4perl qw/:easy/;
+use MarpaX::Languages::XML::Impl::IO;
 use POSIX qw/EXIT_FAILURE EXIT_SUCCESS/;
 use Try::Tiny;
 use Types::Standard -all;
@@ -21,7 +22,7 @@ use XML::NamespaceSupport;
 my $xml = MarpaX::Languages::XML->new_with_options;
 __PACKAGE__->_init_log4perl($xml->loglevel);
 foreach (@ARGV) {
-    $xml->parser->parse($_);
+    $xml->parser->parse(MarpaX::Languages::XML::Impl::IO->new(source => $_), $xml->startsymbol);
 }
 
 exit(EXIT_SUCCESS);

@@ -31,7 +31,7 @@ role MarpaX::Languages::XML::Role::Exception {
     #
     # Add grammar progress
     # --------------------
-    $string .= "\n"
+    $string .= "\n\n"
       . "Grammar progress:\n"
       . "-----------------\n"
       . $recognizer->show_progress;
@@ -49,7 +49,7 @@ role MarpaX::Languages::XML::Role::Exception {
     my $dataAfter = '';
     my $pos = pos($MarpaX::Languages::XML::Impl::Parser::buffer);
     my $length = length($MarpaX::Languages::XML::Impl::Parser::buffer);
-    if ($pos > 0) {
+    if ($pos > 0 && $pos < $length) {
       my $previous_pos = ($pos >= 48) ? $pos - 48 : 0;
       $dataBefore = hexdump(data => $MarpaX::Languages::XML::Impl::Parser::buffer,
                             start_position    => $previous_pos,
@@ -58,12 +58,14 @@ role MarpaX::Languages::XML::Role::Exception {
                             space_as_space    => 1
                            );
     }
-    $dataAfter = hexdump(data => $MarpaX::Languages::XML::Impl::Parser::buffer,
-                         start_position    => $pos,
-                         end_position      => (($pos + 47) <= $length) ? $pos + 47 : $length,
-                         suppress_warnings => 1,
-                         space_as_space    => 1
-                        );
+    if ($pos < $length) {
+      $dataAfter = hexdump(data => $MarpaX::Languages::XML::Impl::Parser::buffer,
+                           start_position    => $pos,
+                           end_position      => (($pos + 47) <= $length) ? $pos + 47 : $length,
+                           suppress_warnings => 1,
+                           space_as_space    => 1
+                          );
+    }
     #
     # Data::HexDumper is a great module, except there is no option
     # to ignore 0x00, which is an impossible character in XML.
@@ -81,17 +83,32 @@ role MarpaX::Languages::XML::Role::Exception {
       }
     }
     if (length($dataBefore) > 0) {
+      if (length($dataAfter) > 0) {
+        $string .= "\n"
+          . "Characters around the error:\n"
+          . "----------------------------\n"
+          . $dataBefore
+          . "  <error>\n"
+          . $dataAfter
+          ;
+      } else {
+        $string .= "\n"
+          . "Characters before the error:\n"
+          . "----------------------------\n"
+          . $dataBefore
+          ;
+      }
+    } elsif (length($dataAfter) > 0) {
       $string .= "\n"
-        . "Characters around the error:\n"
-        . "----------------------------\n"
-        . $dataBefore
-        . "  <error>\n"
-        . $dataAfter;
+        . "Characters just after the error:\n"
+        . "--------------------------------\n"
+        . $dataAfter
+        ;
+    } else {
+      $string .= "\n"
+        . "No data\n\n"
+        ;
     }
-    $string .= "\n"
-      . "Characters just after the error:\n"
-      . "--------------------------------\n"
-      . $dataAfter;
 
     return $string;
   }

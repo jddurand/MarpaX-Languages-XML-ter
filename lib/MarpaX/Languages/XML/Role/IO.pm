@@ -14,7 +14,7 @@ role MarpaX::Languages::XML::Role::IO {
   requires 'reopen';
   requires 'block_size';
   requires 'block_size_value';
-  requires 'binary';
+  requires 'binmode';
   requires 'read';
   requires 'pos';
   requires 'tell';

@@ -24,12 +24,18 @@ class MarpaX::Languages::XML::Impl::Plugin::General::VERSIONNUM_COMPLETED {
                                           }
                           );
 
+  my $versionnumId;
+
+  method DEMOLISH {
+    undef $versionnumId;
+  }
+
   method N_VERSIONNUM_COMPLETED(Dispatcher $dispatcher, Parser $parser, Context $context --> PluggableConstant) {
     #
     # Get declared version number
     # This has a cost but happens only once.
     #
-    my $versionnumId = $context->grammar->compiledGrammar->symbol_by_name_hash->{'_VERSIONNUM'};
+    $versionnumId //= $context->grammar->compiledGrammar->symbol_by_name_hash->{'_VERSIONNUM'};
     my $versionnum = $parser->get_lastLexeme($versionnumId);
     if ($versionnum ne $context->grammar->xmlVersion) {
       $self->_logger->tracef('XML says version number %s while grammar is currently using %s', $versionnum, $context->grammar->xmlVersion);
@@ -40,7 +46,7 @@ class MarpaX::Languages::XML::Impl::Plugin::General::VERSIONNUM_COMPLETED {
       #
       # Make sure IO is resetted
       #
-      $parser->io->reopen;
+      $context->io->reopen;
       #
       # And replace context elements
       #

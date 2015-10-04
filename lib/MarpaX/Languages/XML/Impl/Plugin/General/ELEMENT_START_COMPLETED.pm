@@ -34,8 +34,9 @@ class MarpaX::Languages::XML::Impl::Plugin::General::ELEMENT_START_COMPLETED {
     # Push element context
     #
     my $newContext = MarpaX::Languages::XML::Impl::Context->new(
-                                                                grammar          => $parser->get_grammar('element'),
-                                                                endEventName     => $parser->get_grammar_endEventName('element')
+                                                                io           => $context->io,
+                                                                grammar      => $parser->get_grammar('element'),
+                                                                endEventName => $parser->get_grammar_endEventName('element')
                                                                );
     $self->_logger->tracef('ELEMENT_START_COMPLETED : push element context');
     $parser->push_context($newContext);

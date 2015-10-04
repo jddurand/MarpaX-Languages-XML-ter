@@ -39,7 +39,7 @@ class MarpaX::Languages::XML::Impl::IO {
     #
     # Set binary mode
     #
-    $self->binary;
+    $self->binmode;
     #
     # Position at the beginning
     #
@@ -102,11 +102,11 @@ class MarpaX::Languages::XML::Impl::IO {
     return $self;
   }
 
-  method _close( --> Undef) {
+  method _close( --> IO) {
     $self->_logger->tracef('Closing %s', $self->source);
     $self->_io->close();
 
-    return;
+    return $self;
   }
 
   method block_size(@args --> IO) {
@@ -129,10 +129,10 @@ class MarpaX::Languages::XML::Impl::IO {
     return $rc;
   }
 
-  method binary( --> IO) {
+  method binmode( --> IO) {
 
     $self->_logger->tracef('Setting binary mode');
-    $self->_io->binary();
+    $self->_io->binmode();
     $self->_set_encodingName('binary');
 
     return $self;
@@ -235,11 +235,7 @@ class MarpaX::Languages::XML::Impl::IO {
       # The only alternative is to reopen the stream
       #
       my $orig_block_size = $self->block_size_value;
-      $self->close;
-      $self->open($self->_source);
-      $self->binary;
-      $self->block_size($pos);
-      $self->read;
+      $self->_close->_open($self->_source)->binmode->block_size($pos)->read;
       if ($self->length != $pos) {
         #
         # Really I do not know what else to do

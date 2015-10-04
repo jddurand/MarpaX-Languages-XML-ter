@@ -45,7 +45,7 @@ class MarpaX::Languages::XML::Impl::Plugin::General::XMLDECL_END_COMPLETED {
     #
     if ($decl =~ /([\x{85}\x{2028}])/p) {
       #
-      # We will be smart enough to reposition the buffer exactly where it fails.
+      # We will be smart enough to reposition exactly where it fails
       #
       pos($MarpaX::Languages::XML::Impl::Parser::buffer) = $-[1];
       $parser->redoLineAndColumnNumbers();

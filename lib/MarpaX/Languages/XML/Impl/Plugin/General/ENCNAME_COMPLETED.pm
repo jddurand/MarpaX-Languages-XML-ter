@@ -24,19 +24,25 @@ class MarpaX::Languages::XML::Impl::Plugin::General::ENCNAME_COMPLETED {
                                           }
                           );
 
+  my $encnameId;
+
+  method DEMOLISH {
+    undef $encnameId;
+  }
+
   method N_ENCNAME_COMPLETED(Dispatcher $dispatcher, Parser $parser, Context $context --> PluggableConstant) {
     #
     # Get declared encoding
     # This has a cost but happens only once
     #
-    my $encnameId = $context->grammar->compiledGrammar->symbol_by_name_hash->{'_ENCNAME'};
+    $encnameId //= $context->grammar->compiledGrammar->symbol_by_name_hash->{'_ENCNAME'};
     my $encname = $parser->get_lastLexeme($encnameId);
     #
     # _ENCNAME matches only ASCII characters, so uc() is ok
     #
-    my $io = $parser->io;
+    my $io = $context->io;
     if (uc($encname) ne $io->encodingName) {
-      $self->_logger->tracef('XML says encoding %s while IO is currently using %s', $encname, $parser->io->encodingName);
+      $self->_logger->tracef('XML says encoding %s while IO is currently using %s', $encname, $io->encodingName);
       #
       # Check this is a supported encoding trying on a fake string that can never fail
       #

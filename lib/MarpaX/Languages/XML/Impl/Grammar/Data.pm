@@ -25,7 +25,7 @@ lexeme default = action => [start,length,value,name] forgiving => 1
 start                         ::= $START
 MiscAny                       ::= Misc*
 document                      ::= (internal_event_for_immediate_pause) prolog rootElement MiscAny
-Char                          ::= CHAR
+Char                          ::= (internal_event_for_immediate_pause) CHAR
 Name                          ::= NAME
 Names                         ::= Name+ separator => SPACE proper => 1
 Nmtoken                       ::= NMTOKENMANY

@@ -10,6 +10,6 @@ use Types::Standard -types;
 # AUTHORITY
 
 declare StartSymbol,
-  as Enum[qw/document extParsedEnt extSubset/];
+  as Enum[qw/document extParsedEnt extSubset Char/];
 
 1;
