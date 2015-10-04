@@ -17,6 +17,7 @@ class MarpaX::Languages::XML::Impl::Parser {
   use MarpaX::Languages::XML::Role::Parser;
   use MarpaX::Languages::XML::Type::Context -all;
   use MarpaX::Languages::XML::Type::Dispatcher -all;
+  use MarpaX::Languages::XML::Type::Entity -all;
   use MarpaX::Languages::XML::Type::Exception -all;
   use MarpaX::Languages::XML::Type::Grammar -all;
   use MarpaX::Languages::XML::Type::NamespaceSupport -all;
@@ -68,6 +69,13 @@ class MarpaX::Languages::XML::Impl::Parser {
                          );
   has line            => ( is => 'rwp',  isa => PositiveOrZeroInt, default => 1 );
   has column          => ( is => 'rwp',  isa => PositiveOrZeroInt, default => 1 );
+  has entities        => ( is => 'rwp',  isa => HashRef[Entity],   default => sub { {} },
+                           handles_via => 'Hash',
+                           handles => {
+                                       get_entity => 'get',
+                                       exists_entity => 'exists'
+                                      }
+                         );
   #
   # The very first read in _parse_generic() will use block_size.
   # Nevertheless is this is done with the wrong encoding, we do not want to be polluted

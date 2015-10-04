@@ -36,6 +36,9 @@ role MarpaX::Languages::XML::Role::Parser {
   requires 'inDecl';
   requires 'throw';
   requires 'redoLineAndColumnNumbers';
+  requires 'entities';
+  requires 'exists_entity';
+  requires 'get_entity';
 
 }
 

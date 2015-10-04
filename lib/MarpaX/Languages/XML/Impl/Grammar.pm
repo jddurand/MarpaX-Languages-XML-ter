@@ -7,7 +7,6 @@ use Moops;
 class MarpaX::Languages::XML::Impl::Grammar {
   use Marpa::R2;
   use MarpaX::Languages::XML::Impl::Grammar::Data;
-  use MarpaX::Languages::XML::Impl::Entity;
   use MarpaX::Languages::XML::Role::Grammar;
   use MarpaX::Languages::XML::Type::CompiledGrammar -all;
   use MarpaX::Languages::XML::Type::LexemesMinlength -all;
