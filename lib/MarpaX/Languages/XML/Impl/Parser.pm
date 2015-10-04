@@ -72,8 +72,12 @@ class MarpaX::Languages::XML::Impl::Parser {
   # The very first read in _parse_generic() will use block_size.
   # Nevertheless is this is done with the wrong encoding, we do not want to be polluted
   # by perl saying he got an unmappable character.
-  # We try to avoid that asa much possible with the following:
-  # Any XML grammar is starting with, at most:
+  # We try to avoid that as much possible with the following:
+  # Any XML grammar is starting with, at most and assuming a single characters is used for
+  # space (which is what happens 99% of the time - well I think so - if I am wrong
+  # anyway the parser will continue, because we detect the end of the declaration and have
+  # a very special handling with it. See inDecl() method, the Encoding module, and the
+  # XMLDECL_END_COMPLETED event plugin):
   # <?xml version="1.0" encoding="1234567890123456789012345678901234567890" standalone="yes" ?>
   # 12345678901234567890123456789012345678901234567890123456789012345678901234567890
   #          1         2         3         4         5         6         7
@@ -140,6 +144,8 @@ class MarpaX::Languages::XML::Impl::Parser {
     $self->_clear_dispatcher;
     $self->clear_namespaceSupport;
     $self->inDecl(true);
+    $self->_set_line(1);
+    $self->_set_column(1);
     return;
   }
 
@@ -303,6 +309,20 @@ class MarpaX::Languages::XML::Impl::Parser {
 
   method _readOneChar(Dispatcher $dispatcher, Context $context --> Parser) {
     return $self->_readChars($dispatcher, $context, 1);
+  }
+
+  method redoLineAndColumnNumbers( --> Parser) {
+    my $unicode_newline_regexp = $self->_unicode_newline_regexp;
+    my $pos = pos($MarpaX::Languages::XML::Impl::Parser::buffer);
+    my $string = substr($MarpaX::Languages::XML::Impl::Parser::buffer, 0, $pos);
+    my $linebreaks;
+    if ($linebreaks = () = $string =~ /$unicode_newline_regexp/g) {
+      $self->_set_line($linebreaks);
+      $self->_set_column(1 + ($pos - $+[0]));
+    } else {
+      $self->_set_line(1);
+      $self->_set_column(1 + $pos);
+    }
   }
 
   method throw(Exception $exception, Context $context, Str $message) {

@@ -83,16 +83,20 @@ prolog                        ::= XMLDecl MiscAny
 prolog                        ::=         MiscAny
 prolog                        ::= XMLDecl MiscAny doctypedecl MiscAny
 prolog                        ::=         MiscAny doctypedecl MiscAny
-XMLDecl                       ::= XMLDECL_START VersionInfo EncodingDecl SDDecl S XMLDECL_END
-XMLDecl                       ::= XMLDECL_START VersionInfo EncodingDecl SDDecl   XMLDECL_END
-XMLDecl                       ::= XMLDECL_START VersionInfo EncodingDecl        S XMLDECL_END
-XMLDecl                       ::= XMLDECL_START VersionInfo EncodingDecl          XMLDECL_END
-XMLDecl                       ::= XMLDECL_START VersionInfo              SDDecl S XMLDECL_END
-XMLDecl                       ::= XMLDECL_START VersionInfo              SDDecl   XMLDECL_END
-XMLDecl                       ::= XMLDECL_START VersionInfo                     S XMLDECL_END
-XMLDecl                       ::= XMLDECL_START VersionInfo                       XMLDECL_END
-VersionInfo                   ::= S VERSION Eq SQUOTE VersionNum SQUOTE
-VersionInfo                   ::= S VERSION Eq DQUOTE VersionNum DQUOTE
+XMLDecl                       ::= XMLDECL_START VersionInfo EncodingDecl SDDecl S_START XMLDECL_END
+XMLDecl                       ::= XMLDECL_START VersionInfo EncodingDecl SDDecl         XMLDECL_END
+XMLDecl                       ::= XMLDECL_START VersionInfo EncodingDecl        S_START XMLDECL_END
+XMLDecl                       ::= XMLDECL_START VersionInfo EncodingDecl                XMLDECL_END
+XMLDecl                       ::= XMLDECL_START VersionInfo              SDDecl S_START XMLDECL_END
+XMLDecl                       ::= XMLDECL_START VersionInfo              SDDecl         XMLDECL_END
+XMLDecl                       ::= XMLDECL_START VersionInfo                     S_START XMLDECL_END
+XMLDecl                       ::= XMLDECL_START VersionInfo                             XMLDECL_END
+VersionInfo                   ::= S_START VERSION Eq_START SQUOTE VersionNum SQUOTE
+VersionInfo                   ::= S_START VERSION Eq_START DQUOTE VersionNum DQUOTE
+Eq_START                      ::= S_START EQUAL S_START
+Eq_START                      ::= S_START EQUAL
+Eq_START                      ::=   EQUAL S_START
+Eq_START                      ::=   EQUAL
 Eq                            ::= S EQUAL S
 Eq                            ::= S EQUAL
 Eq                            ::=   EQUAL S
@@ -125,10 +129,10 @@ extSubset                     ::= TextDecl extSubsetDecl
 extSubset                     ::=          extSubsetDecl
 extSubsetDeclUnit             ::= markupdecl | conditionalSect | DeclSep
 extSubsetDecl                 ::= extSubsetDeclUnit*
-SDDecl                        ::= S STANDALONE Eq SQUOTE YES SQUOTE # [VC: Standalone Document Declaration]
-                                | S STANDALONE Eq SQUOTE  NO SQUOTE  # [VC: Standalone Document Declaration]
-                                | S STANDALONE Eq DQUOTE YES DQUOTE  # [VC: Standalone Document Declaration]
-                                | S STANDALONE Eq DQUOTE  NO DQUOTE  # [VC: Standalone Document Declaration]
+SDDecl                        ::= S_START STANDALONE Eq_START SQUOTE YES SQUOTE # [VC: Standalone Document Declaration]
+                                | S_START STANDALONE Eq_START SQUOTE  NO SQUOTE  # [VC: Standalone Document Declaration]
+                                | S_START STANDALONE Eq_START DQUOTE YES DQUOTE  # [VC: Standalone Document Declaration]
+                                | S_START STANDALONE Eq_START DQUOTE  NO DQUOTE  # [VC: Standalone Document Declaration]
 #
 # Take care: start_element SAX event is NOT at the start of an element. This is why there is
 # the internal_event_for_immediate_pause event
@@ -297,8 +301,8 @@ TextDecl                      ::= TEXTDECL_START             EncodingDecl S TEXT
 TextDecl                      ::= TEXTDECL_START             EncodingDecl   TEXTDECL_END
 extParsedEnt                  ::= TextDecl content
 extParsedEnt                  ::=          content
-EncodingDecl                  ::= S ENCODING Eq DQUOTE EncName DQUOTE
-EncodingDecl                  ::= S ENCODING Eq SQUOTE EncName SQUOTE
+EncodingDecl                  ::= S_START ENCODING Eq_START DQUOTE EncName DQUOTE
+EncodingDecl                  ::= S_START ENCODING Eq_START SQUOTE EncName SQUOTE
 EncName                       ::= ENCNAME
 NotationDecl                  ::= NOTATIONDECL_START S Name S ExternalID S NOTATIONDECL_END # [VC: Unique Notation Name]
 NotationDecl                  ::= NOTATIONDECL_START S Name S ExternalID   NOTATIONDECL_END # [VC: Unique Notation Name]
@@ -328,6 +332,7 @@ _DIGITMANY ~ __ANYTHING
 _ALPHAMANY ~ __ANYTHING
 _ENCNAME ~ __ANYTHING
 _S ~ __ANYTHING
+_S_START ~ __ANYTHING
 _NCNAME ~ __ANYTHING
 _PUBIDCHARDQUOTEMANY ~ __ANYTHING
 _PUBIDCHARSQUOTEMANY ~ __ANYTHING
@@ -448,6 +453,7 @@ DIGITMANY ::= _DIGITMANY
 ALPHAMANY ::= _ALPHAMANY
 ENCNAME ::= _ENCNAME
 S ::= _S
+S_START ::= _S_START
 NCNAME ::= _NCNAME
 PUBIDCHARDQUOTEMANY ::= _PUBIDCHARDQUOTEMANY
 PUBIDCHARSQUOTEMANY ::= _PUBIDCHARSQUOTEMANY
@@ -696,16 +702,20 @@ prolog                        ::= XMLDecl MiscAny
 prolog                        ::=         MiscAny
 prolog                        ::= XMLDecl MiscAny doctypedecl MiscAny
 prolog                        ::=         MiscAny doctypedecl MiscAny
-XMLDecl                       ::= XMLDECL_START VersionInfo EncodingDecl SDDecl S XMLDECL_END
-XMLDecl                       ::= XMLDECL_START VersionInfo EncodingDecl SDDecl   XMLDECL_END
-XMLDecl                       ::= XMLDECL_START VersionInfo EncodingDecl        S XMLDECL_END
-XMLDecl                       ::= XMLDECL_START VersionInfo EncodingDecl          XMLDECL_END
-XMLDecl                       ::= XMLDECL_START VersionInfo              SDDecl S XMLDECL_END
-XMLDecl                       ::= XMLDECL_START VersionInfo              SDDecl   XMLDECL_END
-XMLDecl                       ::= XMLDECL_START VersionInfo                     S XMLDECL_END
-XMLDecl                       ::= XMLDECL_START VersionInfo                       XMLDECL_END
-VersionInfo                   ::= S VERSION Eq SQUOTE VersionNum SQUOTE
-VersionInfo                   ::= S VERSION Eq DQUOTE VersionNum DQUOTE
+XMLDecl                       ::= XMLDECL_START VersionInfo EncodingDecl SDDecl S_START XMLDECL_END
+XMLDecl                       ::= XMLDECL_START VersionInfo EncodingDecl SDDecl         XMLDECL_END
+XMLDecl                       ::= XMLDECL_START VersionInfo EncodingDecl        S_START XMLDECL_END
+XMLDecl                       ::= XMLDECL_START VersionInfo EncodingDecl                XMLDECL_END
+XMLDecl                       ::= XMLDECL_START VersionInfo              SDDecl S_START XMLDECL_END
+XMLDecl                       ::= XMLDECL_START VersionInfo              SDDecl         XMLDECL_END
+XMLDecl                       ::= XMLDECL_START VersionInfo                     S_START XMLDECL_END
+XMLDecl                       ::= XMLDECL_START VersionInfo                             XMLDECL_END
+VersionInfo                   ::= S_START VERSION Eq_START SQUOTE VersionNum SQUOTE
+VersionInfo                   ::= S_START VERSION Eq_START DQUOTE VersionNum DQUOTE
+Eq_START                      ::= S_START EQUAL S_START
+Eq_START                      ::= S_START EQUAL
+Eq_START                      ::=   EQUAL S_START
+Eq_START                      ::=   EQUAL
 Eq                            ::= S EQUAL S
 Eq                            ::= S EQUAL
 Eq                            ::=   EQUAL S
@@ -738,10 +748,10 @@ extSubset                     ::= TextDecl extSubsetDecl
 extSubset                     ::=          extSubsetDecl
 extSubsetDeclUnit             ::= markupdecl | conditionalSect | DeclSep
 extSubsetDecl                 ::= extSubsetDeclUnit*
-SDDecl                        ::= S STANDALONE Eq SQUOTE YES SQUOTE # [VC: Standalone Document Declaration]
-                                | S STANDALONE Eq SQUOTE  NO SQUOTE  # [VC: Standalone Document Declaration]
-                                | S STANDALONE Eq DQUOTE YES DQUOTE  # [VC: Standalone Document Declaration]
-                                | S STANDALONE Eq DQUOTE  NO DQUOTE  # [VC: Standalone Document Declaration]
+SDDecl                        ::= S_START STANDALONE Eq_START SQUOTE YES SQUOTE # [VC: Standalone Document Declaration]
+                                | S_START STANDALONE Eq_START SQUOTE  NO SQUOTE  # [VC: Standalone Document Declaration]
+                                | S_START STANDALONE Eq_START DQUOTE YES DQUOTE  # [VC: Standalone Document Declaration]
+                                | S_START STANDALONE Eq_START DQUOTE  NO DQUOTE  # [VC: Standalone Document Declaration]
 #
 # Take care: start_element SAX event is NOT at the start of an element. This is why there is
 # the internal_event_for_immediate_pause event
@@ -902,8 +912,8 @@ TextDecl                      ::= TEXTDECL_START             EncodingDecl S TEXT
 TextDecl                      ::= TEXTDECL_START             EncodingDecl   TEXTDECL_END
 extParsedEnt                  ::= TextDecl content
 extParsedEnt                  ::=          content
-EncodingDecl                  ::= S ENCODING Eq DQUOTE EncName DQUOTE
-EncodingDecl                  ::= S ENCODING Eq SQUOTE EncName SQUOTE
+EncodingDecl                  ::= S_START ENCODING Eq DQUOTE EncName DQUOTE
+EncodingDecl                  ::= S_START ENCODING Eq SQUOTE EncName SQUOTE
 EncName                       ::= ENCNAME
 NotationDecl                  ::= NOTATIONDECL_START S Name S ExternalID S NOTATIONDECL_END # [VC: Unique Notation Name]
 NotationDecl                  ::= NOTATIONDECL_START S Name S ExternalID   NOTATIONDECL_END # [VC: Unique Notation Name]
@@ -933,6 +943,7 @@ _DIGITMANY ~ __ANYTHING
 _ALPHAMANY ~ __ANYTHING
 _ENCNAME ~ __ANYTHING
 _S ~ __ANYTHING
+_S_START ~ __ANYTHING
 _NCNAME ~ __ANYTHING
 _PUBIDCHARDQUOTEMANY ~ __ANYTHING
 _PUBIDCHARSQUOTEMANY ~ __ANYTHING
@@ -1048,6 +1059,7 @@ DIGITMANY ::= _DIGITMANY
 ALPHAMANY ::= _ALPHAMANY
 ENCNAME ::= _ENCNAME
 S ::= _S
+S_START ::= _S_START
 NCNAME ::= _NCNAME
 PUBIDCHARDQUOTEMANY ::= _PUBIDCHARDQUOTEMANY
 PUBIDCHARSQUOTEMANY ::= _PUBIDCHARSQUOTEMANY

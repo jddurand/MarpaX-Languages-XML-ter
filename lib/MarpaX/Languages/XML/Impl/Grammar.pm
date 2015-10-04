@@ -113,6 +113,7 @@ class MarpaX::Languages::XML::Impl::Grammar {
      _ALPHAMANY                     => qr{\G[0-9a-fA-F]++}p,
      _ENCNAME                       => qr{\G[A-Za-z][A-Za-z0-9._\-]*+}p,
      _S                             => qr{\G[\x{20}\x{9}\x{D}\x{A}]++}p,
+     _S_START                       => qr{\G[\x{20}\x{9}\x{D}\x{A}\x{85}\x{2028}]++}p,                 # Because XML version is considered unknown at this stage
      _PUBIDCHARDQUOTEMANY           => qr{\G[a-zA-Z0-9\-'()+,./:=?;!*#@\$_%\x{20}\x{D}\x{A}]++}p,
      _PUBIDCHARSQUOTEMANY           => qr{\G[a-zA-Z0-9\-()+,./:=?;!*#@\$_%\x{20}\x{D}\x{A}]++}p,
      #
@@ -243,6 +244,7 @@ class MarpaX::Languages::XML::Impl::Grammar {
      _ALPHAMANY                     => 1,
      _ENCNAME                       => 1,
      _S                             => 1,
+     _S_START                       => 1,
      _PUBIDCHARDQUOTEMANY           => 1,
      _PUBIDCHARSQUOTEMANY           => 1,
      #

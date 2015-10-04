@@ -18,9 +18,15 @@ class MarpaX::Languages::XML::Impl::Encoding {
 
   #
   # Largest possible notion of S before EOL handling [#x20|#x9|#xD|#xA|x#85|x#2028]
-  # regardless of the xml version (the parser will croak if it see x#58 or x#2028
+  # regardless of the xml version (the parser will croak if it see x#85 or x#2028
   # and xml version is 1.0). We use the Unicode Replacement Character U+FFFD as
   # well so that the guess will not stop
+  #
+  # Now some words on x#85 or x#2028 error reporting: we make sure that in both
+  # XML 1.0 and 1.1 grammars these characters are accepted, regardless of the
+  # final version. See S_START rule.
+  #
+  # The following is S_START plus the Unicode Replacement Character.
   #
   our $S = qr/[\x{20}\x{9}\x{D}\x{A}\x{85}\x{2028}\x{FFFD}]++/;
 

@@ -29,15 +29,27 @@ class MarpaX::Languages::XML::Impl::Plugin::General::XMLDECL_END_COMPLETED {
     # the declaration. And there is a declaration specific rule.
     # Please note that EOL handling was paused until this event.
     #
-    if ($self->xmlVersion eq '1.1') {
-      my $pos = pos($MarpaX::Languages::XML::Impl::Parser::buffer);
-      my $decl = substr($MarpaX::Languages::XML::Impl::Parser::buffer, 0, $pos);
+    # The test on x#85 and x#2028 characters is INDEPENDANT of the xml version because we
+    # allow them in both grammars: in the declaration we do not know yet the final version.
+    # XML 1.0 grammar reject them in its space definition
+    # XML 1.0 grammar accept them in its space definition, except in the declaration
+    # Therefore it is ok to do this test systematically at the end of declaration, regardless
+    # of the XML grammar version.
+    #
+    # Even if the user gave a hint on the xml version.
+    #
+    my $pos = pos($MarpaX::Languages::XML::Impl::Parser::buffer);
+    my $decl = substr($MarpaX::Languages::XML::Impl::Parser::buffer, 0, $pos);
+    #
+    # EOL handling was suspended until $parser->inDecl is true.
+    #
+    if ($decl =~ /([\x{85}\x{2028}])/p) {
       #
-      # EOL handling was suspended until $parser->inDecl is true.
+      # We will be smart enough to reposition the buffer exactly where it fails.
       #
-      if ($decl =~ /[\x{85}\x{2028}]/p) {
-        $parser->throw('Parse', $context, "Invalid character \\x{" . sprintf('%X', ord(${^MATCH})) . "} in declaration");
-      }
+      pos($MarpaX::Languages::XML::Impl::Parser::buffer) = $-[1];
+      $parser->redoLineAndColumnNumbers();
+      $parser->throw('Parse', $context, "Invalid character \\x{" . sprintf('%X', ord(${^MATCH})) . "} in declaration");
     }
     #
     # Ask for at least one char more to trigger EOL handling and
