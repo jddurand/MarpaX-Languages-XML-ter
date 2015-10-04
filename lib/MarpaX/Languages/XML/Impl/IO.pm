@@ -2,7 +2,7 @@ use Moops;
 
 # PODCLASSNAME
 
-# ABSTRACT: IO implementation
+# ABSTRACT: IO implementation on top of IO:All
 
 class MarpaX::Languages::XML::Impl::IO {
   use MarpaX::Languages::XML::Impl::Encoding;
@@ -13,7 +13,7 @@ class MarpaX::Languages::XML::Impl::IO {
   use IO::All::LWP;
   use MooX::Role::Logger;
   use Throwable::Factory
-    IOException    => [qw/$source/]
+    IOException => undef;
     ;
   use Types::Common::Numeric -all;
 
@@ -21,15 +21,14 @@ class MarpaX::Languages::XML::Impl::IO {
 
   # AUTHORITY
 
-  has source            => ( is => 'ro',  isa => Str,  required => 1, trigger => 1 );
-  has encodingName      => ( is => 'rwp', isa => Str,  default => 'binary', init_arg => undef );
-
+  has encodingName      => ( is => 'rwp', isa => Str,  predicate => 1, init_arg => undef );
+  has _source           => ( is => 'rw',  isa => Str);
   has _io               => ( is => 'rw',  isa => InstanceOf['IO::All'] );
   has _block_size_value => ( is => 'rw',  isa => PositiveInt, default => 1024 );
   has _buffer           => ( is => 'rw',  isa => ScalarRef, predicate => 1 );
 
-  method _trigger_source(Str $source --> IO) {
-    $self->_open($source)->_guessEncoding;
+  method BUILD {
+    $self->_io(io);
   }
 
   method _guessEncoding( --> IO) {
@@ -40,6 +39,7 @@ class MarpaX::Languages::XML::Impl::IO {
     # Set binary mode
     #
     $self->binmode;
+    $self->_set_encodingName('binary');
     #
     # Position at the beginning
     #
@@ -50,7 +50,7 @@ class MarpaX::Languages::XML::Impl::IO {
     my $old_block_size = $self->block_size_value();
     $self->block_size(1024) if ($old_block_size != 1024);
     $self->read;
-    IOException->throw('EOF when reading first bytes', source => $self->source) if ($self->length <= 0);
+    return $self if ($self->length <= 0);
     #
     # The stream is supposed to be opened with the correct encoding, if any
     # If there was no guess from the BOM, default will be UTF-8. Nevertheless we
@@ -81,11 +81,12 @@ class MarpaX::Languages::XML::Impl::IO {
     return $self;
   }
 
-  method _open(Str $source, @args --> IO) {
+  method open(Str $source --> IO) {
 
-    $self->_logger->tracef('Opening %s %s', $source, \@args);
-    my $io = io($source)->open(@args);
-    $self->_io($io);
+    $self->_source($source);
+    $self->_logger->tracef('Opening %s', $source);
+    $self->_io->open($source);
+    $self->_guessEncoding if (! $self->has_encodingName);
     #
     # Restore user buffer if there was one
     #
@@ -98,8 +99,8 @@ class MarpaX::Languages::XML::Impl::IO {
     return $self;
   }
 
-  method _close( --> IO) {
-    $self->_logger->tracef('Closing %s', $self->source);
+  method close( --> IO) {
+    $self->_logger->tracef('Closing %s', $self->_source);
     $self->_io->close();
 
     return $self;
@@ -117,18 +118,25 @@ class MarpaX::Languages::XML::Impl::IO {
     return $self->_io->eof;
   }
 
-  method block_size_value(@args --> PositiveInt) {
+  method block_size_value(... --> PositiveInt) {
 
-    my $rc = $self->_block_size_value(@args);
-    $self->_logger->tracef('%s block-size %s %s', @args ? 'Setting' : 'Getting', @args ? '->' : '<-', $rc);
+    my $rc = $self->_block_size_value(@_);
+    $self->_logger->tracef('%s block-size %s %s', @_ ? 'Setting' : 'Getting', @_ ? '->' : '<-', $rc);
 
     return $rc;
+  }
+
+  method name(... --> PositiveInt) {
+
+    my $rc = $self->_io->name(@_);
+
+    return $self;
   }
 
   method binmode( --> IO) {
 
     $self->_logger->tracef('Setting binary mode');
-    $self->_io->binmode();
+    $self->_io->binary;
     $self->_set_encodingName('binary');
 
     return $self;
@@ -159,6 +167,21 @@ class MarpaX::Languages::XML::Impl::IO {
 
       return $self;
     }
+    method write(@args --> IO) {
+
+      $self->_logger->tracef('Writing to IO object');
+      $self->_io->write(@args);
+
+      return $self;
+    }
+  }
+
+  method append(@args --> IO) {
+
+    $self->_logger->tracef('Appending to IO object');
+    $self->_io->append(@args);
+
+    return $self;
   }
 
   method clear( --> IO) {
@@ -186,11 +209,12 @@ class MarpaX::Languages::XML::Impl::IO {
   }
 
   method reopen(--> IO) {
-    $self->_open($self->source);
-    #
-    # Take care! pos() and buffer are back to zero
-    #
-    $self->clear;
+    $self->open($self->_source)
+      ->binmode
+      #
+      # Take care! pos() and buffer are back to zero
+      #
+      ->clear;
   }
 
   method encoding(Str $encodingName --> IO) {
@@ -209,37 +233,33 @@ class MarpaX::Languages::XML::Impl::IO {
   method pos(PositiveOrZeroInt $pos --> IO) {
 
     my $pos_ok = 0;
-    try {
-      my $tell = $self->tell;
-      if ($tell != $pos) {
-        $self->seek($pos, SEEK_SET);
-        if ($self->tell != $pos) {
-          IOException->throw(
-                             sprintf('Failure setting position from %d to %d failure', $tell, $pos),
-                             source => $self->source
-                            );
-        } else {
-          $pos_ok = 1;
-        }
+    my $tell = $self->tell;
+    if ($tell != $pos) {
+      $self->seek($pos, SEEK_SET);
+      if ($self->tell != $pos) {
+        $self->_logger->tracef('Failure setting position from %d to %d failure', $tell, $pos);
       } else {
         $pos_ok = 1;
       }
-    };
+    } else {
+      $pos_ok = 1;
+    }
     if (! $pos_ok) {
       #
       # Ah... not seekable perhaps
       # The only alternative is to reopen the stream
       #
       my $orig_block_size = $self->block_size_value;
-      $self->_close->_open($self->_source)->binmode->block_size($pos)->read;
+      $self->reopen
+        ->binmode
+        ->encoding($self->encodingName)
+        ->block_size($pos)
+        ->read;
       if ($self->length != $pos) {
         #
         # Really I do not know what else to do
         #
-        IOException->throw(
-                           "Re-opening failed to position at byte $pos",
-                           source => $self->_source
-                          );
+        IOException->throw("Re-opening failed to position at byte $pos");
       } else {
         #
         # Restore original io block size
