@@ -10,6 +10,6 @@ use Types::Standard -types;
 # AUTHORITY
 
 declare Dispatcher,
-  as InstanceOf['MarpaX::Languages::XML::Impl::Dispatcher'];
+  as ConsumerOf['MarpaX::Languages::XML::Role::Dispatcher'];
 
 1;
