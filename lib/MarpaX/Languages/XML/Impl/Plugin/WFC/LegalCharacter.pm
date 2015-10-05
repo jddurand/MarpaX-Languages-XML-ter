@@ -5,6 +5,7 @@ use Moops;
 # ABSTRACT: Well-Formed constraint Legal Character
 
 class MarpaX::Languages::XML::Impl::Plugin::WFC::LegalCharacter {
+  use Encode qw/is_utf8/;
   use IO::String;
   use MarpaX::Languages::XML::Impl::IO;
   use MarpaX::Languages::XML::Impl::Plugin;
@@ -40,6 +41,7 @@ class MarpaX::Languages::XML::Impl::Plugin::WFC::LegalCharacter {
     # Verify it passes the Char rule
     #
     my $io = MarpaX::Languages::XML::Impl::IO->new(source => '$', detectEncoding => false);
+    $io->encoding('utf8') if (is_utf8($char));
     ${$io->string_ref} = $char;
     $parser->parse($io, 'Char', false);
     if ($parser->rc == EXIT_SUCCESS) {
