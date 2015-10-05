@@ -571,8 +571,8 @@ class MarpaX::Languages::XML::Impl::Parser {
           #
           # We use an optimized version to bypass the the Marpa::R2::Grammar::symbol_name call
           #
-           use Data::Hexdumper qw/hexdump/;
-           $self->_logger->tracef('Buffer: %s', hexdump(substr($MarpaX::Languages::XML::Impl::Parser::buffer, 0, 16)));
+          # use Data::Hexdumper qw/hexdump/;
+          # $self->_logger->tracef('Buffer: %s', hexdump(substr($MarpaX::Languages::XML::Impl::Parser::buffer, 0, 16)));
           if ($MarpaX::Languages::XML::Impl::Parser::buffer =~ $lexeme_match_by_symbol_ids[$_]) {
             my $matched_data = ${^MATCH};
             my $length_matched_data = length($matched_data);
