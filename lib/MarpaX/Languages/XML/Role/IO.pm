@@ -10,16 +10,14 @@ role MarpaX::Languages::XML::Role::IO {
 
   # AUTHORITY
 
-  requires 'open';
   requires 'reopen';
-  requires 'close';
   requires 'block_size';
   requires 'block_size_value';
   requires 'binmode';
   requires 'read';
   requires 'write';
-  requires 'append';
-  requires 'name';
+  requires 'is_string';
+  requires 'string_ref';
   requires 'pos';
   requires 'tell';
   requires 'seek';

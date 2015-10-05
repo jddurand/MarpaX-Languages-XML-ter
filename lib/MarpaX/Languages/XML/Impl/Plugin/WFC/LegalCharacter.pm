@@ -39,7 +39,9 @@ class MarpaX::Languages::XML::Impl::Plugin::WFC::LegalCharacter {
     #
     # Verify it passes the Char rule
     #
-    $parser->parse(MarpaX::Languages::XML::Impl::IO->new->open('$')->append($char));
+    my $io = MarpaX::Languages::XML::Impl::IO->new(source => '$', detectEncoding => false);
+    ${$io->string_ref} = $char;
+    $parser->parse($io, 'Char', false);
     if ($parser->rc == EXIT_SUCCESS) {
       $self->_logger->tracef('Character Reference %s passes the Char production', $origin);
     } else {
