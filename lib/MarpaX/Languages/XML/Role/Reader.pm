@@ -15,7 +15,7 @@ role MarpaX::Languages::XML::Role::Reader {
   requires 'read';
   #
   # We require to have a read method with exactly this
-  # prototype, with the same semantics as Java's InputStream.
+  # prototype, with the same semantics as Java's InputStream read() on bytes.
   # This would be:
   # around read(Bytes $bytes, PositiveOrZeroInt $off, PositiveOrZeroInt $len) {
   #   $self->${^NEXT}($bytes, $off, $len);
