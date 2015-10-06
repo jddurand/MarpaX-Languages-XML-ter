@@ -55,7 +55,6 @@ class Reader {
       my $currentLength = length($buffer);
       if ($currentLength < $_[2]) {
         my $need = $_[2] - $currentLength;
-        print STDERR "ASKING FOR $need BYTES\n";
         $self->io_all->block_size($need), $self->io_all->read;     # Reads up to needed bytes of data - we assume underlying read will block until some bytes, or EOF, or error
         $currentLength = length($buffer);
       }
