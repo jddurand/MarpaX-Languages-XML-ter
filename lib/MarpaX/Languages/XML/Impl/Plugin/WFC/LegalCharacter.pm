@@ -6,6 +6,7 @@ use Moops;
 
 class MarpaX::Languages::XML::Impl::Plugin::WFC::LegalCharacter {
   use Encode qw/is_utf8/;
+  use Fcntl qw/:seek/;
   use IO::String;
   use MarpaX::Languages::XML::Impl::IO;
   use MarpaX::Languages::XML::Impl::Plugin;
@@ -40,9 +41,8 @@ class MarpaX::Languages::XML::Impl::Plugin::WFC::LegalCharacter {
     #
     # Verify it passes the Char rule
     #
-    my $io = MarpaX::Languages::XML::Impl::IO->new(source => '$', detectEncoding => false);
-    $io->encoding('utf8') if (is_utf8($char));
-    ${$io->string_ref} = $char;
+    my $io = MarpaX::Languages::XML::Impl::IO->new(source => '$', encodingName => is_utf8($char) ? 'utf8' : 'ASCII', byteStart => 0);
+    $io->write($char);
     $parser->parse($io, 'Char', false);
     if ($parser->rc == EXIT_SUCCESS) {
       $self->_logger->tracef('Character Reference %s passes the Char production', $origin);

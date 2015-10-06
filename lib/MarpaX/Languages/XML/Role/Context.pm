@@ -10,7 +10,8 @@ role MarpaX::Languages::XML::Role::Context {
 
   # AUTHORITY
 
-  requires 'io';
+  requires 'reader';
+  requires 'eof';
   requires 'grammar';
   requires 'set_grammar';
   requires 'endEventName';

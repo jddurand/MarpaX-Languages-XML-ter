@@ -2,273 +2,127 @@ use Moops;
 
 # PODCLASSNAME
 
-# ABSTRACT: IO implementation
+# ABSTRACT: IO implementation on top of IO::All or IO::String
+
+# Note: try to use io->string. You will get almost nothing usable
+# plus the overhead is tfar too high for something in memory.
 
 class MarpaX::Languages::XML::Impl::IO {
-  use MarpaX::Languages::XML::Impl::Encoding;
-  use MarpaX::Languages::XML::Role::IO;
-  use MarpaX::Languages::XML::Type::IO -all;
   use Fcntl qw/:seek/;
   use IO::All;
   use IO::All::LWP;
+  use IO::String;
+  use MarpaX::Languages::XML::Impl::Encoding;
+  use MarpaX::Languages::XML::Role::IO;
+  use MarpaX::Languages::XML::Type::IO -all;
   use MooX::Role::Logger;
-  use Throwable::Factory
-    IOException    => [qw/$source/]
-    ;
+  use Throwable::Factory IOException => undef;
   use Types::Common::Numeric -all;
 
   # VERSION
 
   # AUTHORITY
 
-  has source            => ( is => 'ro',  isa => Str,  required => 1, trigger => 1 );
-  has detectEncoding    => ( is => 'ro',  isa => Bool, default => true);
-  has encodingName      => ( is => 'rwp', isa => Str,  default => 'binary', init_arg => undef );
-  has eof               => ( is => 'rwp', isa => Bool, default => false, trigger => 1);
+  has source            => ( is => 'ro',  isa => Str|ScalarRef,     required => 1 );
 
-  has _io               => ( is => 'rw',  isa => InstanceOf['IO::All'] );
-  has _block_size_value => ( is => 'rw',  isa => PositiveInt, default => 1024 );
-  has _buffer           => ( is => 'rw',  isa => ScalarRef, predicate => 1 );
+  has _encodingName     => ( is => 'rw',  isa => Str,               trigger => 1, lazy => 1, builder => 1, reader => 'encodingName');
+  has _byteStart        => ( is => 'rw',  isa => PositiveOrZeroInt, trigger => 1, default => 0,            reader => 'byteStart');
+  has _io               => ( is => 'rw',  isa => InstanceOf['IO::All']|InstanceOf['IO::String'] );
+  has _is_string        => ( is => 'rw',  isa => Bool );
 
-  method _trigger_source(Str $source --> IO) {
-    $self->_open($source)->_guessEncoding;
+  method BUILD {
+    $self->_logger->tracef('Opening %s', $self->source);
+    $self->_is_string(ScalarRef->check($self->source));
+    $self->_open;
   }
 
-  method _trigger_eof(Bool $eof) {
-    $self->_logger->tracef('Setting EOF to %s', $eof ? 'true' : 'false');
-  }
-
-  method _guessEncoding( --> IO) {
-    return $self if (! $self->detectEncoding);
-    #
-    # Guess encoding
-    # --------------
-    #
-    # No-op for a in-memory file
-    #
-    # Set binary mode
-    #
-    $self->binmode;
-    #
-    # Position at the beginning
-    #
-    $self->pos(0);
-    #
-    # Read the first bytes. 1024 is far enough.
-    #
-    my $old_block_size = $self->block_size_value();
-    $self->block_size(1024) if ($old_block_size != 1024);
-    $self->read;
-    IOException->throw('EOF when reading first bytes', source => $self->source) if ($self->length <= 0);
-    #
-    # The stream is supposed to be opened with the correct encoding, if any
-    # If there was no guess from the BOM, default will be UTF-8. Nevertheless we
-    # do NOT set it immediately: if it UTF-8, the beginning of the XML file will
-    # start with one byte chars only, which is compatible with binary mode.
-    # And if it is not UTF-8, the first chars will tell us more.
-    # If the encoding is setted to something else but what the BOM eventually says
-    # this will be handled by a callback from the grammar.
-    #
-    # In theory we should have the localized buffer available. We "//" just in case
-    #
-    my $bytes = ${$self->buffer};
-    #
-    # An XML processor SHOULD work with case-insensitive encoding name. So we uc()
-    # (note: per def an encoding name contains only Latin1 character, i.e. uc() is ok)
-    #
-    my $encoding = MarpaX::Languages::XML::Impl::Encoding->new(bytes => $bytes);
-    #
-    # Make sure we are positionned at the beginning of the buffer and at correct
-    # source position. This is inefficient for everything that is not seekable.
-    # And reset it appropriately to Encoding object
-    #
-    $self->pos($encoding->byteStart);
-    $self->clear;
-    $self->encoding($encoding->value);
-    $self->block_size($old_block_size) if ($old_block_size != 1024);
-
-    return $self;
-  }
-
-  method _open(Str $source, @args --> IO) {
-
-    $self->_logger->tracef('Opening %s %s', $source, \@args);
-    $self->_io(io($source))->open(@args);
-    #
-    # Restore user buffer if there was one
-    #
-    $self->buffer($self->_buffer) if ($self->_has_buffer);
-    #
-    # And block-size
-    #
-    $self->block_size($self->_block_size_value);
-
-    return $self;
-  }
-
-  method _close( --> IO) {
+  method DEMOLISH {
     $self->_logger->tracef('Closing %s', $self->source);
-    $self->_io->close();
+  }
 
+  method _trigger__encodingName(Str $encodingName) {
+    $self->_logger->tracef('Setted encodingName to %s', $encodingName);
+  }
+
+  method _trigger__byteStart(PositiveOrZeroInt $byteStart) {
+    $self->_logger->tracef('Setted byteStart to %d', $byteStart);
+  }
+
+  method _build__encodingName( --> Str) {
+    #
+    # No-op for an IO::String
+    #
+    return '' if ($self->_is_string);
+    #
+    # Read first BYTES (1024 is the IO::all default and is enough)
+    #
+    $self->binmode->read;
+    my $encoding = MarpaX::Languages::XML::Impl::Encoding->new(bytes => ${$self->_io->buffer});
+    $self->_byteStart($encoding->byteStart);
+    return $encoding->value;
+  }
+
+  method _open( --> IO) {
+    # Note: doing ->encoding() before the pos() ensure that byteStart is
+    #       calculated if needed
+    $self->_io($self->_is_string ? IO::String->new($self->source) : io($self->source))->encoding($self->encodingName);
+    $self->seek($self->byteStart, SEEK_SET);
     return $self;
   }
 
-  method block_size(@args --> IO) {
-
-    $self->_io->block_size($self->block_size_value(@args));
-
-    return $self;
-  }
-
-  method is_string( --> Bool) {
-
-    return $self->_io->is_string;
-  }
-
-  method string_ref( --> ScalarRef) {
-
-    return $self->_io->string_ref;
-  }
-
-  method block_size_value(@args --> PositiveInt) {
-
-    my $rc = $self->_block_size_value(@args);
-    $self->_logger->tracef('%s block-size %s %s', @args ? 'Setting' : 'Getting', @args ? '->' : '<-', $rc);
-
-    return $rc;
-  }
-
-  method binmode( --> IO) {
-
-    $self->_logger->tracef('Setting binary mode');
-    $self->_io->binmode();
-    $self->_set_encodingName('binary');
-
+  method binmode(... --> IO) {
+    $self->_logger->tracef('Setting binary mode %s', \@_);
+    $self->_io->binmode(@_);
     return $self;
   }
 
   method length( --> PositiveOrZeroInt) {
-
-    my $rc = $self->_io->length();
+    my $rc = $self->_is_string ? length(${$self->source}) : $self->_io->length();
     $self->_logger->tracef('Getting length -> %s', $rc);
-
     return $rc;
   }
 
-  method buffer(@args --> ScalarRef) {
-
-    $self->_logger->tracef('%s buffer', @args ? 'Setting' : 'Getting');
-    $self->_buffer($args[0]) if (@args);
-    return $self->_io->buffer(@args);
+  method eof( --> Bool) {
+    my $rc = $self->_io->eof;
+    $self->_logger->tracef('Getting EOF -> %s', $rc ? 'yes' : 'no');
+    return $rc;
   }
-
 
   {
     no warnings 'redefine';
-    method read( --> IO) {
-
-      $self->_logger->tracef('Reading %d units', $self->_block_size_value);
-      my $previous_length = $self->length;
-      $self->_io->read;
-      $self->_set_eof(true) if ($self->length <= $previous_length);
-
+    method read(... --> IO) {
+      my $rc = $self->_io->read(@_);
+      $self->_logger->tracef('Reading %d units -> %d done', $rc);
       return $self;
     }
-    method write(... --> IO) {
-
-      $self->_logger->tracef('Writing to IO object', $self->_block_size_value);
-      $self->_io->write(@_);
-
-      return $self;
-    }
-  }
-
-  method clear( --> IO) {
-
-    $self->_logger->tracef('Clearing buffer');
-    $self->_io->clear;
-
-    return $self;
   }
 
   method tell( --> PositiveOrZeroInt) {
-
     my $rc = $self->_io->tell;
     $self->_logger->tracef('Tell -> %s', $rc);
-
     return $rc;
   }
 
-  method seek(@args --> IO) {
-
-    $self->_logger->tracef('Seek %s', \@args);
-    $self->_io->seek(@args);
-
+  method seek(... --> IO) {
+    $self->_logger->tracef('Seek %s', \@_);
+    $self->_io->seek(@_);
     return $self;
   }
 
   method reopen(--> IO) {
-    $self->_open($self->source);
-    #
-    # Take care! pos() and buffer are back to zero
-    #
-    $self->clear;
+    $self->_logger->tracef('Reopening %s', $self->source);
+    $self->_open;
   }
 
   method encoding(Str $encodingName --> IO) {
-
     if (uc($self->encodingName) ne uc($encodingName)){ # encoding name is not case sensitive
       $self->_logger->tracef('New encoding layer %s disagree with previous layer %s: reopening the stream and resetting buffer', $encodingName, $self->encodingName);
+      #
+      # User's responsability to change byteStart if needed;
+      #
+      $self->_set__encodingName($encodingName);
       $self->reopen;
     }
-    $self->_logger->tracef('Setting encoding layer %s', $encodingName);
-    $self->_io->encoding($encodingName);
-    $self->_set_encodingName($encodingName);
-
-    return $self;
-  }
-
-  method pos(PositiveOrZeroInt $pos --> IO) {
-
-    my $pos_ok = 0;
-    try {
-      my $tell = $self->tell;
-      if ($tell != $pos) {
-        $self->seek($pos, SEEK_SET);
-        if ($self->tell != $pos) {
-          IOException->throw(
-                             sprintf('Failure setting position from %d to %d failure', $tell, $pos),
-                             source => $self->source
-                            );
-        } else {
-          $pos_ok = 1;
-        }
-      } else {
-        $pos_ok = 1;
-      }
-    };
-    if (! $pos_ok) {
-      #
-      # Ah... not seekable perhaps
-      # The only alternative is to reopen the stream
-      #
-      my $orig_block_size = $self->block_size_value;
-      $self->_close->_open($self->_source)->binmode->block_size($pos)->read;
-      if ($self->length != $pos) {
-        #
-        # Really I do not know what else to do
-        #
-        IOException->throw(
-                           "Re-opening failed to position at byte $pos",
-                           source => $self->_source
-                          );
-      } else {
-        #
-        # Restore original io block size
-        $self->block_size($self->block_size_value($orig_block_size));
-      }
-    }
-
     return $self;
   }
 

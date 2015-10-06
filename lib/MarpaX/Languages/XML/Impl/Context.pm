@@ -12,12 +12,13 @@ class MarpaX::Languages::XML::Impl::Context {
   use MarpaX::Languages::XML::Type::Context -all;
   use MarpaX::Languages::XML::Type::Grammar -all;
   use MarpaX::Languages::XML::Type::ImmediateAction -all;
-  use MarpaX::Languages::XML::Type::IO -all;
+  use MarpaX::Languages::XML::Type::Reader -all;
   use MarpaX::Languages::XML::Type::Recognizer -all;
   use MooX::HandlesVia;
   use Types::Common::Numeric -all;
 
-  has io              => ( is => 'ro',  isa => IO,                required => 1 );
+  has reader          => ( is => 'ro',  isa => Reader,            required => 1 );
+  has eof             => ( is => 'rw',  isa => Bool,              default => false );
   has grammar         => ( is => 'rw',  isa => Grammar,           required => 1, trigger => 1, writer => 'set_grammar' );
   has endEventName    => ( is => 'rw',  isa => Str,               required => 1, writer => 'set_endEventName' );
   has recognizer      => ( is => 'rwp', isa => Recognizer,        init_arg => undef );
