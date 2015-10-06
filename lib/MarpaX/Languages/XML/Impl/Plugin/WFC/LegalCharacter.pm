@@ -7,8 +7,7 @@ use Moops;
 class MarpaX::Languages::XML::Impl::Plugin::WFC::LegalCharacter {
   use Encode qw/is_utf8/;
   use Fcntl qw/:seek/;
-  use IO::String;
-  use MarpaX::Languages::XML::Impl::IO;
+  use MarpaX::Languages::XML::Impl::Reader::Str;
   use MarpaX::Languages::XML::Impl::Plugin;
   use MarpaX::Languages::XML::Type::PluggableConstant -all;
   use MarpaX::Languages::XML::Type::Context -all;
@@ -43,15 +42,13 @@ class MarpaX::Languages::XML::Impl::Plugin::WFC::LegalCharacter {
     # We reposition backward and ask to parse with a fresh new context.
     #
     #
-    my $pos = $parser->getCharBufferPosition;
-    $parser->deltaPosCharBuffer(-length($char));   # Should be 1 -;
-    if ($parser->parse('Char', false) == EXIT_SUCCESS) {
+    if ($parser->parseCharStream(MarpaX::Languages::XML::Impl::Reader::Str->new($char), 'Char', false) == EXIT_SUCCESS) {
       $self->_logger->tracef('Character Reference %s passes the Char production', $origin);
     } else {
       #
       # We will be smart enough to reposition exactly at the beginning of the character reference
       #
-      $parser->setPosCharBuffer($pos - length($origin));
+      $parser->deltaPosCharBuffer(- length($origin));
       $parser->throw('Parse', $context, "Character Reference $origin does not match the Char production");
     }
 

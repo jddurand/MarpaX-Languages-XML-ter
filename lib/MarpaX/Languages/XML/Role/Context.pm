@@ -12,6 +12,7 @@ role MarpaX::Languages::XML::Role::Context {
 
   requires 'reader';
   requires 'encodingName';
+  requires 'readCharsMethod';
   requires 'eof';
   requires 'grammar';
   requires 'endEventName';

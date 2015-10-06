@@ -1,7 +1,7 @@
-package MarpaX::Languages::XML::Type::StreamChars;
+package MarpaX::Languages::XML::Type::BytesOrChars;
 use Type::Library
   -base,
-  -declare => qw/StreamChars/;
+  -declare => qw/BytesOrChars/;
 use Type::Utils -all;
 use Types::Encodings -types;       # To get Bytes
 use Encode;
@@ -10,7 +10,7 @@ use Encode;
 
 # AUTHORITY
 
-declare StreamChars,
-  as Chars;
+declare BytesOrChars,
+  as Chars|Bytes;
 
 1;

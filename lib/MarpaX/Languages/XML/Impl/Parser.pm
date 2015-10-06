@@ -17,7 +17,6 @@ class MarpaX::Languages::XML::Impl::Parser {
   use MarpaX::Languages::XML::Impl::Exception;
   use MarpaX::Languages::XML::Impl::Grammar;
   use MarpaX::Languages::XML::Impl::ImmediateAction::Constant;
-  use MarpaX::Languages::XML::Impl::IO;
   use MarpaX::Languages::XML::Impl::PluginFactory;
   use MarpaX::Languages::XML::Role::Parser;
   use MarpaX::Languages::XML::Type::Context -all;
@@ -27,7 +26,6 @@ class MarpaX::Languages::XML::Impl::Parser {
   use MarpaX::Languages::XML::Type::Exception -all;
   use MarpaX::Languages::XML::Type::Grammar -all;
   use MarpaX::Languages::XML::Type::NamespaceSupport -all;
-  use MarpaX::Languages::XML::Type::IO -all;
   use MarpaX::Languages::XML::Type::LastLexemes -all;
   use MarpaX::Languages::XML::Type::Parser -all;
   use MarpaX::Languages::XML::Type::Reader -all;
@@ -54,7 +52,6 @@ class MarpaX::Languages::XML::Impl::Parser {
   # AUTHORITY
 
   has xmlVersion      => ( is => 'rw',  isa => XmlVersion,        required => 1, trigger => 1 );
-  has reader          => ( is => 'ro',  isa => Reader,            required => 1 );
   has xmlns           => ( is => 'ro',  isa => Bool,              required => 1 );
   has vc              => ( is => 'ro',  isa => ArrayRef[Str],     required => 1, handles_via => 'Array', handles => { elements_vc => 'elements' } );
   has wfc             => ( is => 'ro',  isa => ArrayRef[Str],     required => 1, handles_via => 'Array', handles => { elements_wfc => 'elements' } );
@@ -86,10 +83,9 @@ class MarpaX::Languages::XML::Impl::Parser {
                                       }
                          );
   has namespaceSupport => ( is => 'rw',  isa => NamespaceSupport,                   lazy => 1, builder => 1, clearer => 1 );
-  has encodingName     => ( is => 'rw',  isa => Str,                                lazy => 1, builder => 1, trigger => 1 );
   #
-  # The very first read in _parse_generic() will use block_size.
-  # Nevertheless is this is done with the wrong encoding, we do not want to be polluted
+  # The very first read to _readCharsFromByteStream need to have an encodingName.
+  # Nevertheless if is this is done with the wrong encoding, after the guess, we do not want to be polluted
   # by perl saying he got an unmappable character.
   # We try to avoid that as much possible with the following:
   # Any XML grammar is starting with, at most and assuming a single characters is used for
@@ -125,13 +121,9 @@ class MarpaX::Languages::XML::Impl::Parser {
   has _grammars_events        => ( is => 'rw',  isa => HashRef[HashRef[HashRef[Str]]],     lazy => 1, builder => 1, clearer => 1, handles_via => 'Hash', handles => { _get_grammar_events => 'get' } );
   has _grammars_endEventName  => ( is => 'rw',  isa => HashRef[Str],                       lazy => 1, builder => 1, clearer => 1, handles_via => 'Hash', handles => { get_grammar_endEventName => 'get' } );
 
-  method _build_encodingName {
-    $self->_readBytes($self->_firstReadBytesLength);
-    return MarpaX::Languages::XML::Impl::Encoding->new(bytes => $MarpaX::Languages::XML::Impl::Parser::bytes)->value;
-  }
-
-  method trigger_encodingName(Str $encodingName) {
-    $self->_logger->tracef('Setting encodingName to %s', $encodingName);
+  method encodingName(Reader $reader) {
+    $self->_readBytesFromReader($reader, $self->_firstReadBytesLength);
+    return MarpaX::Languages::XML::Impl::Encoding->new(bytes => $MarpaX::Languages::XML::Impl::Parser::proxyBuffer)->value;
   }
 
   method _trigger_inDecl(Bool $inDecl) {
@@ -251,27 +243,36 @@ class MarpaX::Languages::XML::Impl::Parser {
     return $string;
   }
 
-  method _readBytes(PositiveInt $wanted --> Int) {
-    my $rc = $self->reader->read($MarpaX::Languages::XML::Impl::Parser::bytes, length($MarpaX::Languages::XML::Impl::Parser::bytes), $wanted);
-    $self->_logger->tracef('Asking reader for %d bytes -> reader returned %d. Byte buffer length is now %d', $wanted, $rc, length($MarpaX::Languages::XML::Impl::Parser::bytes));
+  method _readFromReader(Reader $reader, Bool $byteStream, PositiveInt $wanted --> Int) {
+    my $rc = $reader->read($MarpaX::Languages::XML::Impl::Parser::proxyBuffer, length($MarpaX::Languages::XML::Impl::Parser::proxyBuffer), $wanted);
+    $self->_logger->tracef('Asking reader for %d %s -> reader returned %d. Byte buffer length is now %d', $wanted, $byteStream ? 'bytes' : 'chararacters', $rc, length($MarpaX::Languages::XML::Impl::Parser::proxyBuffer));
     return $rc;
   }
 
-  method _readChars(Dispatcher $dispatcher, Context $context, PositiveOrZeroInt $wanted? --> Int) {
+  method _readBytesFromReader(Reader $reader, PositiveInt $wanted --> Int) {
+    return $self->_readFromReader($reader, true, $wanted);
+  }
+
+  method _readCharsFromReader(Reader $reader, PositiveInt $wanted --> Int) {
+    return $self->_readFromReader($reader, false, $wanted);
+  }
+
+  method _readChars(Bool $byteStream, Dispatcher $dispatcher, Context $context, PositiveOrZeroInt $wanted? --> Int) {
     $wanted //= 0;
     #
     # We manipulate buffer like this because we want the EOL event plugin
     # to work on everything that has just been read, for a question of
     # performance of the regexps used by the EOL plugin.
     #
+    # Please note that, in character stream mode, the inner
+    #
     my $localBuffer = '';
     my $eof = false;
     do {
       my $innerBuffer = undef;
-      if ($self->_readBytes($self->blockSize) > 0) {
-        $innerBuffer .= decode($self->encodingName, $MarpaX::Languages::XML::Impl::Parser::bytes, $ENCODE_CHECK);
-        # $innerBuffer .= ToStreamChars->coerce($MarpaX::Languages::XML::Impl::Parser::bytes, $context->encodingName);
-        $self->_logger->tracef('%d characters converted so far', length($innerBuffer));
+      my $got = $byteStream ? $self->_readBytesFromReader($context->reader, $self->blockSize) : $self->_readCharsFromReader($context->reader, $self->blockSize);
+      if ($got > 0) {
+        $innerBuffer .= $byteStream ? decode($context->encodingName, $MarpaX::Languages::XML::Impl::Parser::proxyBuffer, $ENCODE_CHECK) : $MarpaX::Languages::XML::Impl::Parser::proxyBuffer;
         if (defined($localBuffer)) {
           $localBuffer .= $innerBuffer;
         } else {
@@ -281,7 +282,7 @@ class MarpaX::Languages::XML::Impl::Parser {
         #
         # EOF is considered fatal is not all bytes were converted
         #
-        ParseException->throw(sprintf('At EOF, still %d bytes remained not converted using the encoding %s', length($MarpaX::Languages::XML::Impl::Parser::bytes), $context->encodingName)) if (length($MarpaX::Languages::XML::Impl::Parser::bytes));
+        ParseException->throw(sprintf('At EOF, still %d bytes remained not converted using the encoding %s', length($MarpaX::Languages::XML::Impl::Parser::proxyBuffer), $context->encodingName)) if ($byteStream && length($MarpaX::Languages::XML::Impl::Parser::proxyBuffer));
         $context->eof($eof = true);
       }
       if (! $self->inDecl) {
@@ -306,16 +307,32 @@ class MarpaX::Languages::XML::Impl::Parser {
     return $rc;
   }
 
-  method parse(StartSymbol $startSymbol, Bool $silent? --> Int) {
+  method _readCharsFromByteStream(Dispatcher $dispatcher, Context $context, PositiveOrZeroInt $wanted? --> Int) {
+    return $self->_readChars(true, $dispatcher, $context, $wanted // 0);
+  }
+
+  method _readCharsFromCharStream(Dispatcher $dispatcher, Context $context, PositiveOrZeroInt $wanted? --> Int) {
+    return $self->_readChars(false, $dispatcher, $context, $wanted // 0);
+  }
+
+  method parseByteStream(Reader $reader, StartSymbol $startSymbol, Bool $silent? --> Int) {
+    return $self->_parse($reader, $startSymbol, true, $silent);
+  }
+
+  method parseCharStream(Reader $reader, StartSymbol $startSymbol, Bool $silent? --> Int) {
+    return $self->_parse($reader, $startSymbol, false, $silent);
+  }
+
+  method _parse(Reader $reader, StartSymbol $startSymbol, Bool $byteStream, Bool $silent? --> Int) {
     $silent //= false;
-    $self->_logger->tracef('startSymbol=%s, silent=%s', $startSymbol, $silent ? 'yes' : 'no');
+    $self->_logger->tracef('startSymbol=%s, byteStream=%s, silent=%s', $startSymbol, $byteStream ? 'yes' : 'no', $silent ? 'yes' : 'no');
     #
     # Prepare I/O
     # We want to handle buffer direcly with no COW: the buffer scalar is localized.
     # And have the block size as per the argument
     #
-    local $MarpaX::Languages::XML::Impl::Parser::bytes  = '';        # Bytes buffer
-    local $MarpaX::Languages::XML::Impl::Parser::buffer = '';        # Decoded buffer
+    local $MarpaX::Languages::XML::Impl::Parser::proxyBuffer  = '';              # Proxy buffer (bytes of char)
+    local $MarpaX::Languages::XML::Impl::Parser::buffer       = '';              # Char buffer
     #
     # The same Parser instance can be reused on another start symbol.
     # Therefore we save current context pile.
@@ -326,10 +343,11 @@ class MarpaX::Languages::XML::Impl::Parser {
     # Push first context (I delibarately not use internal variables)
     #
     $self->push_context(MarpaX::Languages::XML::Impl::Context->new(
-                                                                   reader       => $self->reader,
-                                                                   encodingName => $self->encodingName,      # This will force the guess from initial bytes -;
-                                                                   grammar      => $self->get_grammar($startSymbol),
-                                                                   endEventName => $self->get_grammar_endEventName($startSymbol)
+                                                                   reader          => $reader,
+                                                                   encodingName    => $byteStream ? $self->encodingName($reader) : undef, # This will force the guess from initial bytes in byteStream mode -;
+                                                                   readCharsMethod => $byteStream ? \&_readCharsFromByteStream : \&_readCharsFromCharStream,
+                                                                   grammar         => $self->get_grammar($startSymbol),
+                                                                   endEventName    => $self->get_grammar_endEventName($startSymbol)
                                                                   )
                        );
     my $context = $self->_get_context(0);
@@ -391,7 +409,8 @@ class MarpaX::Languages::XML::Impl::Parser {
   }
 
   method _readOneChar(Dispatcher $dispatcher, Context $context --> Parser) {
-    return $self->_readChars($dispatcher, $context, 1);
+    my $readCharsMethod = $context->readCharsMethod;
+    return $self->$readCharsMethod($dispatcher, $context, 1);
   }
 
   method getCharBufferPosition( --> PositiveOrZeroInt) {
@@ -406,7 +425,7 @@ class MarpaX::Languages::XML::Impl::Parser {
   }
 
   method deltaPosCharBuffer(Int $delta --> Parser) {
-    $self->_logger->tracef('Moving char buffer position by %d', $delta);
+    $self->_logger->tracef('Moving char buffer position by a delta of %d', $delta);
     pos($MarpaX::Languages::XML::Impl::Parser::buffer) += $delta;
     $self->redoLineAndColumnNumbers();
     return $self;
@@ -443,36 +462,6 @@ class MarpaX::Languages::XML::Impl::Parser {
          parser       => $self,
          context      => $context
         );
-  }
-
-  method read(Dispatcher $dispatcher, Context $context, PositiveInt $wanted? --> Parser) {
-
-    #
-    # We manipulate buffer like this because we want the EOL event plugin
-    # to work on everything that has just been read, for a question of
-    # performance of the regexps used by the EOL plugin.
-    #
-    my $localBuffer = '';
-    my $eof = false;
-    do {
-      my $innerBuffer = undef;
-      $context->reader->read($innerBuffer, 0, $wanted // $self->blockSize);
-      if (defined($innerBuffer)) {
-        if (defined($localBuffer)) {
-          $localBuffer .= $innerBuffer;
-        } else {
-          $localBuffer = $innerBuffer;
-        }
-      } else {
-        $context->eof($eof = true);
-      }
-    } while (! $self->inDecl &&
-             ($dispatcher->process('EOL', $self, $context, $localBuffer) == EAT_NONE) &&
-             ! $eof);
-
-    $MarpaX::Languages::XML::Impl::Parser::buffer .= $localBuffer;
-
-    return $self;
   }
 
   #
@@ -543,6 +532,7 @@ class MarpaX::Languages::XML::Impl::Parser {
 
   method _parse_generic(Dispatcher $dispatcher --> Parser) {
     my $context = $self->_get_context(-1);
+    my $readCharsMethod = $context->readCharsMethod;
     #
     # Constant variables
     #
@@ -599,7 +589,7 @@ class MarpaX::Languages::XML::Impl::Parser {
                 $self->throw('Parse', $context, "EOF but $startSymbol grammar is not over");
               }
             } else {
-              $self->_readChars($dispatcher, $context);
+              $self->$readCharsMethod($dispatcher, $context);
               $length = length($MarpaX::Languages::XML::Impl::Parser::buffer);
               if ($length <= 0) {
                 if ($canStop || $previousCanStop) {
@@ -620,10 +610,10 @@ class MarpaX::Languages::XML::Impl::Parser {
             my $needed = $wanted  - $remaining;
             $self->_logger->tracef('[%d/%d]%s Undecidable: need at least %d characters more', $count, $self->count_contexts, $startSymbol, $needed);
             if (! $self->inDecl) {
-              $self->_reduce($context)->_readChars($dispatcher, $context);
+              $self->_reduce($context)->$readCharsMethod($dispatcher, $context);
               $pos = pos($MarpaX::Languages::XML::Impl::Parser::buffer) = 0;
             } else {
-              $self->_readChars($dispatcher, $context);
+              $self->$readCharsMethod($dispatcher, $context);
               pos($MarpaX::Languages::XML::Impl::Parser::buffer) = $pos;
             }
             $length = length($MarpaX::Languages::XML::Impl::Parser::buffer);
@@ -656,10 +646,10 @@ class MarpaX::Languages::XML::Impl::Parser {
             #
             if (($length_matched_data >= $remaining) && (! $context->eof)) { # Match up to the end of buffer is avoided as much as possible
               if (! $self->inDecl) {
-                $self->_reduce($context)->_readChars($dispatcher, $context);
+                $self->_reduce($context)->$readCharsMethod($dispatcher, $context);
                 $pos = pos($MarpaX::Languages::XML::Impl::Parser::buffer) = 0;
               } else {
-                $self->_readChars($dispatcher, $context);
+                $self->$readCharsMethod($dispatcher, $context);
                 pos($MarpaX::Languages::XML::Impl::Parser::buffer) = $pos;
               }
               $length = length($MarpaX::Languages::XML::Impl::Parser::buffer);

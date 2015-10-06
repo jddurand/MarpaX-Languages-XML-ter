@@ -34,10 +34,11 @@ class MarpaX::Languages::XML::Impl::Plugin::General::ELEMENT_START_COMPLETED {
     # Push element context
     #
     my $newContext = MarpaX::Languages::XML::Impl::Context->new(
-                                                                reader       => $context->reader,
-                                                                encodingName => $context->encodingName,
-                                                                grammar      => $parser->get_grammar('element'),
-                                                                endEventName => $parser->get_grammar_endEventName('element')
+                                                                reader          => $context->reader,
+                                                                encodingName    => $context->encodingName,
+                                                                readCharsMethod => $context->readCharsMethod,
+                                                                grammar         => $parser->get_grammar('element'),
+                                                                endEventName    => $parser->get_grammar_endEventName('element')
                                                                );
     $self->_logger->tracef('ELEMENT_START_COMPLETED : push element context');
     $parser->push_context($newContext);

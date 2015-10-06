@@ -10,7 +10,7 @@ use Moops;
 
 role MarpaX::Languages::XML::Role::Reader {
   use Types::Common::Numeric qw/PositiveOrZeroInt/;
-  use Types::Encodings qw/Bytes/;
+  use MarpaX::Languages::XML::Type::BytesOrChars -all;
 
   requires 'read';
   #
@@ -28,8 +28,9 @@ role MarpaX::Languages::XML::Role::Reader {
   #     CORE::read($self->fh, @_);
   #   }
   # }
+
   around read(... --> Int) {
-    Bytes->assert_valid($_[0]), PositiveOrZeroInt->assert_valid($_[1]), PositiveOrZeroInt->assert_valid($_[2]), $self->${^NEXT}(@_)
+    BytesOrChars->assert_valid($_[0]), PositiveOrZeroInt->assert_valid($_[1]), PositiveOrZeroInt->assert_valid($_[2]), $self->${^NEXT}(@_)
   }
 
 }

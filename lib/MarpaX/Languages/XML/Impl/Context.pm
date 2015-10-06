@@ -18,7 +18,8 @@ class MarpaX::Languages::XML::Impl::Context {
   use Types::Common::Numeric -all;
 
   has reader          => ( is => 'ro',  isa => Reader,            required => 1 );
-  has encodingName    => ( is => 'ro',  isa => Str,               required => 1 );
+  has encodingName    => ( is => 'ro',  isa => Str|Undef,         required => 1 );
+  has readCharsMethod => ( is => 'ro',  isa => CodeRef,           required => 1 );
   has eof             => ( is => 'rw',  isa => Bool,              default => false );
   has grammar         => ( is => 'rw',  isa => Grammar,           required => 1, trigger => 1);
   has endEventName    => ( is => 'rw',  isa => Str,               required => 1);

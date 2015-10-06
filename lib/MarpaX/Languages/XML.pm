@@ -34,16 +34,15 @@ class MarpaX::Languages::XML {
   };
 
   method parse(Str $source) {
-    my $reader = MarpaX::Languages::XML::Impl::Reader->new(io($source));
     return MarpaX::Languages::XML::Impl::Parser->new(xmlVersion      => $self->xmlversion,
-                                                     reader          => $reader,
                                                      xmlns           => $self->xmlns,
                                                      wfc             => $self->wfc,
                                                      vc              => $self->vc,
                                                      blockSize       => $self->blocksize,
                                                      unicode_newline => $self->unicode_newline,
                                                      saxHandler      => $self->saxHandler)
-      -> parse($self->startsymbol);
+      ->parseByteStream(MarpaX::Languages::XML::Impl::Reader->new(io($source)),
+                        $self->startsymbol);
   }
   # ---------------------------------------------------------------------------
   option wfc => (

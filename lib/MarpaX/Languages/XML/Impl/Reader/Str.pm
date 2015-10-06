@@ -22,7 +22,6 @@ class MarpaX::Languages::XML::Impl::Reader::Str {
 
   method BUILDARGS(@args) {
     unshift(@args, 'io') if (@args % 2 == 1);
-    print STDERR "RETURNING { @args }\n";
     return { @args };
   }
 
