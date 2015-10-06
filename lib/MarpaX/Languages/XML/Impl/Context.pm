@@ -19,8 +19,8 @@ class MarpaX::Languages::XML::Impl::Context {
 
   has reader          => ( is => 'ro',  isa => Reader,            required => 1 );
   has eof             => ( is => 'rw',  isa => Bool,              default => false );
-  has grammar         => ( is => 'rw',  isa => Grammar,           required => 1, trigger => 1, writer => 'set_grammar' );
-  has endEventName    => ( is => 'rw',  isa => Str,               required => 1, writer => 'set_endEventName' );
+  has grammar         => ( is => 'rw',  isa => Grammar,           required => 1, trigger => 1);
+  has endEventName    => ( is => 'rw',  isa => Str,               required => 1);
   has recognizer      => ( is => 'rwp', isa => Recognizer,        init_arg => undef );
   has immediateAction => ( is => 'rw',  isa => ImmediateAction,   default => IMMEDIATEACTION_NONE );
 

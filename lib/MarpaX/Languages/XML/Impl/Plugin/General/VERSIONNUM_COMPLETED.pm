@@ -50,8 +50,8 @@ class MarpaX::Languages::XML::Impl::Plugin::General::VERSIONNUM_COMPLETED {
       #
       # And replace context elements
       #
-      $context->set_grammar($parser->get_grammar($context->grammar->startSymbol));
-      $context->set_endEventName($parser->get_grammar_endEventName($context->grammar->startSymbol));
+      $context->grammar($parser->get_grammar($context->grammar->startSymbol));
+      $context->endEventName($parser->get_grammar_endEventName($context->grammar->startSymbol));
       $context->immediateAction(IMMEDIATEACTION_RETURN);
     } else {
       $self->_logger->tracef('XML and Grammar agree with version number %s', $versionnum);
