@@ -48,3 +48,4 @@ class MarpaX::Languages::XML::Impl::Reader {
   with 'MarpaX::Languages::XML::Role::Reader';
 }
 
+1;

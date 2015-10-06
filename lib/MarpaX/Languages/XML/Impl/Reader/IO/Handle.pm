@@ -50,3 +50,4 @@ class MarpaX::Languages::XML::Impl::Reader::IO::Handle {
   with 'MarpaX::Languages::XML::Role::Reader';
 }
 
+1;

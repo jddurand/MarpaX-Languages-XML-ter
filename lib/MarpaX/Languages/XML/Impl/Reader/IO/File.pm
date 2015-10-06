@@ -18,3 +18,5 @@ class MarpaX::Languages::XML::Impl::Reader::IO::File {
     $self->io->binmode;               # bytes only
   }
 }
+
+1;

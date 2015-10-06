@@ -486,11 +486,6 @@ class MarpaX::Languages::XML::Impl::Parser {
       #
       my $immediateAction = $context->immediateAction;
       if ($immediateAction) {
-        if ($immediateAction & IMMEDIATEACTION_RETURN) {
-          $self->_logger->tracef('[%d/%d]%s IMMEDIATEACTION_RETURN', $count, $self->count_contexts, $startSymbol);
-          $rc = false;
-          $context->immediateAction($immediateAction &= ~IMMEDIATEACTION_RETURN);
-        }
         if ($immediateAction & IMMEDIATEACTION_POP_CONTEXT) {
           $self->_logger->tracef('[%d/%d]%s IMMEDIATEACTION_POP_CONTEXT', $count, $self->count_contexts, $startSymbol);
           $self->_pop_context;
@@ -524,6 +519,11 @@ class MarpaX::Languages::XML::Impl::Parser {
           #
           # Keep context as it is. The removal of this bit in delayed in _parse_generic()
           #
+        }
+        if ($immediateAction & IMMEDIATEACTION_RETURN) {
+          $self->_logger->tracef('[%d/%d]%s IMMEDIATEACTION_RETURN', $count, $self->count_contexts, $startSymbol);
+          $rc = false;
+          $context->immediateAction($immediateAction &= ~IMMEDIATEACTION_RETURN);
         }
       }
     }
