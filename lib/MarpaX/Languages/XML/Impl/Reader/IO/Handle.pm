@@ -34,13 +34,16 @@ class MarpaX::Languages::XML::Impl::Reader::IO::Handle {
     # If no byte is available because the stream is at end of file, the value -1 is returned; otherwise, at least one byte is read and stored into b.
 
     method read(... --> Int) {
-      (! $_[2])   && return 0;                         # If len is zero, then no bytes are read and 0 is returned
-      $self->_eof && return -1;                        # If no byte is available because the stream is at end of file, the value -1 is returned
+      return 0 if (! $_[2]);                           # If len is zero, then no bytes are read and 0 is returned
+      return -1 if ($self->_eof);                      # If no byte is available because the stream is at end of file, the value -1 is returned
 
       my $done = $self->io->read($_[0], $_[2], $_[1]);
-      ! defined($done) && croak $!;
-      ! $done && $self->_eof(true) && return -1;       # We handle ourself the EOF notion
-      $done
+      croak($!) if (! defined($done));
+      if (! $done) {
+        $self->_eof(true);                             # We handle ourself the EOF notion
+        return -1;
+      }
+      return $done;
     }
   }
 

@@ -39,20 +39,25 @@ class MarpaX::Languages::XML::Impl::Reader::IO::All {
     # If no byte is available because the stream is at end of file, the value -1 is returned; otherwise, at least one byte is read and stored into b.
 
     method read(... --> Int) {
-      (! $_[2])   && return  0;                            # If len is zero, then no bytes are read and 0 is returned
-      $self->_eof && return -1;                            # If no byte is available because the stream is at end of file, the value -1 is returned
+      return 0 if (! $_[2]);                               # If len is zero, then no bytes are read and 0 is returned
+      return -1 if $self->_eof;                            # If no byte is available because the stream is at end of file, the value -1 is returned
       #
       # Take care: underlying read can read MORE than asked
       #
       my $currentLength = length($buffer);
       if ($currentLength < $_[2]) {
         my $need = $_[2] - $currentLength;
-        $self->io->block_size($need), $self->io->read;     # Reads up to needed bytes of data - we assume underlying read will block until some bytes, or EOF, or error
+        $self->io->block_size($need);                      # Reads up to needed bytes of data
+        $self->io->read;                                   # We assume underlying read will block until some bytes, or EOF, or error
         $currentLength = length($buffer);
       }
       my $done = ($currentLength <= $_[2]) ? $currentLength : $_[2];
-      (! $done) && $self->_eof(true) && return -1;         # We do not trust underlying EOF
-      substr($_[0], $_[1], $done, substr($buffer, 0, $done, '')), $done
+      if (! $done) {
+        $self->_eof(true);                                 # We do not trust underlying EOF
+        return -1;
+      }
+      substr($_[0], $_[1], $done, substr($buffer, 0, $done, ''));
+      return $done;
     }
   }
 

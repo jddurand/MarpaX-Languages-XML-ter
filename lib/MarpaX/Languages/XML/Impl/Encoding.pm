@@ -59,6 +59,8 @@ class MarpaX::Languages::XML::Impl::Encoding {
 
     $self->_bom('');
     $self->_bom_size(0);
+    return '' if (length($bytes) <= 0);
+
     #
     # 5 bytes
     #
@@ -138,6 +140,8 @@ class MarpaX::Languages::XML::Impl::Encoding {
     # Do ourself common guesses
     #
     $self->_guess('');
+    return '' if (length($bytes) <= 0);
+
     if ($bytes =~ /^\x{00}\x{00}\x{00}\x{3C}/) { # '<' in UTF-32BE
       $self->_guess('UTF-32BE');
     }
@@ -191,6 +195,8 @@ class MarpaX::Languages::XML::Impl::Encoding {
       try {
         #
         # Decode as much as possible
+        # We do not use Encode::FB_QUIET because we would like to catch ourself
+        # the replacement character U+FFFD
         #
         my $string = decode($self->_guess, $bytes, Encode::FB_DEFAULT);
         if ($string =~ /^<\?xml(?:${S}version=(?:(?:"1\.[01]\")|(?:'1\.[01]\')))?${S}encoding=((?:"[A-Za-z][A-Za-z0-9._\-]*+")|(?:'[A-Za-z][A-Za-z0-9._\-]*+'))/p) {
@@ -201,16 +207,17 @@ class MarpaX::Languages::XML::Impl::Encoding {
           #
           # Have we encountered the replacement character ?
           #
-          if ($matched_data =~ /[\x{FFFD}]/) {
-            $self->_logger->tracef('XML declaration pre-detected using guessed encoding %s and says encoding is %s - not all characters were reconized correctly', $self->_guess, $encname);
+          if ($string =~ /[\x{FFFD}]/) {
+            $self->_logger->tracef('XML declaration pre-detected using guessed encoding %s on %d bytes and says encoding is %s - not all characters were reconized correctly', $self->_guess, length($bytes), $encname);
+            substr($string, $-[0], length($matched_data) - $-[0], '');
           } else {
-            $self->_logger->tracef('XML declaration pre-detected using guessed encoding %s and says encoding is %s', $self->_guess, $encname);
+            $self->_logger->tracef('XML declaration pre-detected using guessed encoding %s on %d bytes and says encoding is %s', $self->_guess, length($bytes), $encname);
           }
           #
           # Verify this is a valid encoding
           #
           try {
-            my $octets  = encode($encname, $string, Encode::FB_CROAK);
+            my $octets  = encode($encname, $matched_data, Encode::FB_CROAK);
             $self->_logger->tracef('Success verifying XML declared encoding %s', $encname);
           } catch {
             $self->_logger->warnf('Failed to verify XML declared encoding %s: %s', $encname, $_);

@@ -35,14 +35,15 @@ class MarpaX::Languages::XML::Impl::Reader::IO::String {
     #
 
     method read(... --> Int) {
-      (! $_[2])   && return  0;                            # If len is zero, then no bytes are read and 0 is returned
+      return  0 if (! $_[2]);                              # If len is zero, then no bytes are read and 0 is returned
       my $io = $self->io;
-      $io->eof && return -1;                               # If no byte is available because the stream is at end of file, the value -1 is returned
+      return -1 if ($io->eof);                             # If no byte is available because the stream is at end of file, the value -1 is returned
       #
       # This cannot return undef because we guaranteed this was opened with a valid Str
       # Neverthless IO::String does like if $_[0] is undef
+      #
       $_[0] = '' if (! defined($_[0]));
-      $io->read($_[0], $_[2], $_[1])
+      return $io->read($_[0], $_[2], $_[1])
     }
   }
 

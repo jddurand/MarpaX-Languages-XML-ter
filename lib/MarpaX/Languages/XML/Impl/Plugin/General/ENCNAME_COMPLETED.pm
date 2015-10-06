@@ -40,9 +40,8 @@ class MarpaX::Languages::XML::Impl::Plugin::General::ENCNAME_COMPLETED {
     #
     # _ENCNAME matches only ASCII characters, so uc() is ok
     #
-    my $io = $context->io;
-    if (uc($encname) ne $io->encodingName) {
-      $self->_logger->tracef('XML says encoding %s while IO is currently using %s', $encname, $io->encodingName);
+    if (uc($encname) ne $parser->encodingName) {
+      $self->_logger->tracef('XML says encoding %s while IO is currently using %s', $encname, $parser->encodingName);
       #
       # Check this is a supported encoding trying on a fake string that can never fail
       #
@@ -53,13 +52,21 @@ class MarpaX::Languages::XML::Impl::Plugin::General::ENCNAME_COMPLETED {
       } catch {
         $parser->throw('Parse', $context, "Encoding $encname verification failure: $_");
       };
-      $self->_guess($encname);
-
-      $io->encoding($encname);
+      #
+      # Inform parser. The grammar does not change. Just the encoding.
+      #
+      $parser->encodingName($encname);
+      #
+      # Make sure we restart from the beginning
+      # Please note that per def $parser->inDecl is false at this stage.
+      # This mean that the char buffer is guaranteed to never have been
+      # reduced -;
+      #
+      $parser->setPosCharBuffer(0);
+      #
+      # And replay
+      #
       $context->restartRecognizer;
-      #
-      # Say we want to replay this context
-      #
       $context->immediateAction(IMMEDIATEACTION_RETURN);
     } else {
       $self->_logger->tracef('XML and IO agree with encoding %s', $encname);

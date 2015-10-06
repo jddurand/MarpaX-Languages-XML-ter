@@ -10,6 +10,12 @@ role MarpaX::Languages::XML::Role::Parser {
 
   # AUTHORITY
 
+  requires 'reader';
+  requires 'encodingName';
+  requires 'setPosCharBuffer';
+  requires 'deltaPosCharBuffer';
+  requires 'getCharBuffer';
+  requires 'getCharBufferPosition';
   requires 'xmlVersion';
   requires 'xmlns';
   requires 'vc';
@@ -21,7 +27,6 @@ role MarpaX::Languages::XML::Role::Parser {
   requires 'get_grammar_endEventName';
   requires 'count_contexts';
   requires 'push_context';
-  requires 'read';
   requires 'lastLexemes';
   requires 'get_lastLexeme';
   requires 'set_lastLexeme';

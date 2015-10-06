@@ -39,19 +39,19 @@ class MarpaX::Languages::XML::Impl::Plugin::WFC::LegalCharacter {
 
   method _isChar(Dispatcher $dispatcher, Parser $parser, Context $context, Str $origin, Str $char --> PluggableConstant) {
     #
-    # Verify it passes the Char rule
+    # Verify it passes the Char rule.
+    # We reposition backward and ask to parse with a fresh new context.
     #
-    my $io = MarpaX::Languages::XML::Impl::IO->new(source => '$', encodingName => is_utf8($char) ? 'utf8' : 'ASCII', byteStart => 0);
-    $io->write($char);
-    $parser->parse($io, 'Char', false);
-    if ($parser->rc == EXIT_SUCCESS) {
+    #
+    my $pos = $parser->getCharBufferPosition;
+    $parser->deltaPosCharBuffer(-length($char));   # Should be 1 -;
+    if ($parser->parse('Char', false) == EXIT_SUCCESS) {
       $self->_logger->tracef('Character Reference %s passes the Char production', $origin);
     } else {
       #
       # We will be smart enough to reposition exactly at the beginning of the character reference
       #
-      pos($MarpaX::Languages::XML::Impl::Parser::buffer) -= length($origin);
-      $parser->redoLineAndColumnNumbers();
+      $parser->setPosCharBuffer($pos - length($origin));
       $parser->throw('Parse', $context, "Character Reference $origin does not match the Char production");
     }
 

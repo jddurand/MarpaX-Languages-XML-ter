@@ -38,8 +38,7 @@ class MarpaX::Languages::XML::Impl::Plugin::General::XMLDECL_END_COMPLETED {
     #
     # Even if the user gave a hint on the xml version.
     #
-    my $pos = pos($MarpaX::Languages::XML::Impl::Parser::buffer);
-    my $decl = substr($MarpaX::Languages::XML::Impl::Parser::buffer, 0, $pos);
+    my $decl = $parser->getCharBuffer(0, $parser->getCharBufferPosition);
     #
     # EOL handling was suspended until $parser->inDecl is true.
     #
@@ -47,8 +46,7 @@ class MarpaX::Languages::XML::Impl::Plugin::General::XMLDECL_END_COMPLETED {
       #
       # We will be smart enough to reposition exactly where it fails
       #
-      pos($MarpaX::Languages::XML::Impl::Parser::buffer) = $-[1];
-      $parser->redoLineAndColumnNumbers();
+      $parser->setPosCharBuffer($-[1]);
       $parser->throw('Parse', $context, "Invalid character \\x{" . sprintf('%X', ord(${^MATCH})) . "} in declaration");
     }
     #

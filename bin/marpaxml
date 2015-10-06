@@ -1,17 +1,10 @@
 #!perl
 use Getopt::Long;
-use IO::All;
-use IO::All::LWP;
 use MarpaX::Languages::XML;
-use Moops;
 use Log::Any qw/$log/;
 use Log::Any::Adapter;
 use Log::Log4perl qw/:easy/;
-use MarpaX::Languages::XML::Impl::Reader;
-use POSIX qw/EXIT_FAILURE EXIT_SUCCESS/;
-use Try::Tiny;
-use Types::Standard -all;
-use XML::NamespaceSupport;
+use POSIX qw/EXIT_SUCCESS/;
 
 # ABSTRACT: Marpa/Moops powered XML parser in Perl
 
@@ -24,10 +17,7 @@ use XML::NamespaceSupport;
 my $xml = MarpaX::Languages::XML->new_with_options;
 __PACKAGE__->_init_log4perl($xml->loglevel);
 
-foreach (@ARGV) {
-    my $reader = MarpaX::Languages::XML::Impl::Reader->new(io($_));
-    $xml->parser->parse($reader, $xml->startsymbol) ;
-}
+map { $xml->parse($_) } @ARGV;
 
 exit(EXIT_SUCCESS);
 

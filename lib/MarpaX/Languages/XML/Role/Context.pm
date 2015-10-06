@@ -11,6 +11,7 @@ role MarpaX::Languages::XML::Role::Context {
   # AUTHORITY
 
   requires 'reader';
+  requires 'encodingName';
   requires 'eof';
   requires 'grammar';
   requires 'endEventName';

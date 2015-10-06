@@ -6,9 +6,13 @@ use Moops;
 
 class MarpaX::Languages::XML {
   use Class::Load qw/load_class/;
+  use IO::All;
+  use IO::All::LWP;
   use MarpaX::Languages::XML::Impl::Parser;
   use MarpaX::Languages::XML::Impl::PluginFactory;
+  use MarpaX::Languages::XML::Impl::Reader;
   use MarpaX::Languages::XML::Type::Loglevel -all;
+  use MarpaX::Languages::XML::Type::Reader -all;
   use MarpaX::Languages::XML::Type::SaxHandler -all;
   use MarpaX::Languages::XML::Type::SaxHandlerReturnCode -all;
   use MarpaX::Languages::XML::Type::XmlVersion -all;
@@ -29,21 +33,17 @@ class MarpaX::Languages::XML {
     return $doc;
   };
 
-  # ---------------------------------------------------------------------------
-  has parser => (
-                 is => 'rwp',
-                 isa => InstanceOf['MarpaX::Languages::XML::Impl::Parser'],
-                 lazy => 1,
-                 builder => 1
-                );
-  method _build_parser (--> InstanceOf['MarpaX::Languages::XML::Impl::Parser']) {
+  method parse(Str $source) {
+    my $reader = MarpaX::Languages::XML::Impl::Reader->new(io($source));
     return MarpaX::Languages::XML::Impl::Parser->new(xmlVersion      => $self->xmlversion,
+                                                     reader          => $reader,
                                                      xmlns           => $self->xmlns,
                                                      wfc             => $self->wfc,
                                                      vc              => $self->vc,
                                                      blockSize       => $self->blocksize,
                                                      unicode_newline => $self->unicode_newline,
-                                                     saxHandler      => $self->saxHandler);
+                                                     saxHandler      => $self->saxHandler)
+      -> parse($self->startsymbol);
   }
   # ---------------------------------------------------------------------------
   option wfc => (
@@ -137,7 +137,7 @@ class MarpaX::Languages::XML {
                        #
                        format => 'i',
                        short => 'b',
-                       doc => q{I/O block length. At the very beginning this really mean bytes, and when encoding is determined this mean number of characters. Default value is 1M. Must be a positive value.}
+                       doc => q{I/O block length in bytes. Default value is 1M. Must be a positive value.}
                   );
   # ---------------------------------------------------------------------------
   option unicode_newline => (

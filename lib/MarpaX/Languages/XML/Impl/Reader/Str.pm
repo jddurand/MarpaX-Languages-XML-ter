@@ -29,7 +29,7 @@ class MarpaX::Languages::XML::Impl::Reader::Str {
   {
     no warnings 'redefine';
     method read(... --> Int) {
-      $self->_io->read(@_)
+      return $self->_io->read(@_)
     }
   }
 

@@ -40,18 +40,24 @@ class MarpaX::Languages::XML::Impl::Plugin::General::VERSIONNUM_COMPLETED {
     if ($versionnum ne $context->grammar->xmlVersion) {
       $self->_logger->tracef('XML says version number %s while grammar is currently using %s', $versionnum, $context->grammar->xmlVersion);
       #
-      # Look to Parser's xmlVersion implementation: it will call clearers
+      # Inform parser. Look to its xmlVersion implementation, this will call clearers.
       #
       $parser->xmlVersion($versionnum);
       #
-      # Make sure IO is resetted
+      # Make sure we restart from the beginning
+      # Please note that per def $parser->inDecl is false at this stage.
+      # This mean that the char buffer is guaranteed to never have been
+      # reduced -;
       #
-      $context->io->reopen;
+      $parser->setPosCharBuffer(0);
       #
-      # And replace context elements
+      # Replace context elements (this will automatically restart the recognizer)
       #
       $context->grammar($parser->get_grammar($context->grammar->startSymbol));
       $context->endEventName($parser->get_grammar_endEventName($context->grammar->startSymbol));
+      #
+      # And replay
+      #
       $context->immediateAction(IMMEDIATEACTION_RETURN);
     } else {
       $self->_logger->tracef('XML and Grammar agree with version number %s', $versionnum);
