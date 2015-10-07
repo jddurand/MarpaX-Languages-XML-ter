@@ -650,6 +650,11 @@ class MarpaX::Languages::XML::Impl::Parser {
         my $terminals_expected_again = 0;
         foreach (@terminals_expected_to_symbol_ids) {
           #
+          # We do not want to be polluted by perl warnings if things in the buffer are
+          # garbled -;
+          #
+          no warnings;
+          #
           # It is a configuration error to have $lexeme_match_by_symbol_ids{$_} undef at this stage
           # Note: all our patterns are compiled with the /p modifier for perl < 5.20
           #

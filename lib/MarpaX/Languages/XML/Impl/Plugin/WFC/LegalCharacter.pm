@@ -62,10 +62,16 @@ class MarpaX::Languages::XML::Impl::Plugin::WFC::LegalCharacter {
   }
 
   method N_CHARREF_END2_COMPLETED(Dispatcher $dispatcher, Parser $parser, Context $context --> PluggableConstant) {
-
     $ALPHAMANYId //= $context->grammar->compiledGrammar->symbol_by_name_hash->{'_ALPHAMANY'};
     my $ALPHAMANY = $parser->get_lastLexeme($ALPHAMANYId);
-    my $char = chr(hex($ALPHAMANY));
+    my $char;
+    {
+      #
+      # We do want perl to emit any warning at this stage
+      #
+      no warnings;
+      $char = chr(hex($ALPHAMANY))
+    }
     my $origin = "&#x$ALPHAMANY;";
 
     return $self->_isChar($dispatcher, $parser, $context, $origin, $char);
