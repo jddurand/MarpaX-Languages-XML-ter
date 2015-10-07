@@ -31,6 +31,14 @@ class MarpaX::Languages::XML::Impl::Plugin::General::ELEMENT_START_COMPLETED {
 
   method N_ELEMENT_START_COMPLETED(Dispatcher $dispatcher, Parser $parser, Context $context --> PluggableConstant) {
     #
+    # If this is the root element, no need anymore for these events:
+    #
+    if ($parser->count_contexts == 1) {
+      $context->activate('ENCNAME_COMPLETED', 0);
+      $context->activate('XMLDECL_END_COMPLETED', 0);
+      $context->activate('VERSIONNUM_COMPLETED', 0);
+    }
+    #
     # Push element context
     #
     my $newContext = MarpaX::Languages::XML::Impl::Context->new(
@@ -46,17 +54,17 @@ class MarpaX::Languages::XML::Impl::Plugin::General::ELEMENT_START_COMPLETED {
     # Position is already after ELEMENT_START: push that lexeme in the new context so that we can
     # continue. We disable/enable the ELEMENT_START_COMPLETED to avoid recursivity
     #
-    $newContext->recognizer->activate('ELEMENT_START_COMPLETED', 0);
+    $newContext->activate('ELEMENT_START_COMPLETED', 0);
     $newContext->recognizer->lexeme_read('_ELEMENT_START', 0, 1);
-    $newContext->recognizer->activate('ELEMENT_START_COMPLETED', 1);
+    $newContext->activate('ELEMENT_START_COMPLETED', 1);
     #
     # We prepare the current context to do as if the element was eat, we are
     # careful to not generate any corresponding event
     #
     $context->recognizer->lexeme_read($_NAME_LEXEME_NAME, 0, 1);
-    $context->recognizer->activate('element_COMPLETED', 0);
+    $context->activate('element_COMPLETED', 0);
     $context->recognizer->lexeme_read('_EMPTYELEM_END', 0, 1);
-    $context->recognizer->activate('element_COMPLETED', 1);
+    $context->activate('element_COMPLETED', 1);
     #
     # Next time with this context, we do not want to pile-up again an element context:
     # We say it is has to return, but is not popped up because it will have to resume
