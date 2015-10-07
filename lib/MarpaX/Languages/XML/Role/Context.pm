@@ -17,6 +17,7 @@ role MarpaX::Languages::XML::Role::Context {
   requires 'grammar';
   requires 'endEventName';
   requires 'recognizer';
+  requires 'activate';
   requires 'immediateAction';
   requires 'restartRecognizer';
 
