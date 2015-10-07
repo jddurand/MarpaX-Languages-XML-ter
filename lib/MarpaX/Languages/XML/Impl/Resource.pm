@@ -18,10 +18,10 @@ class MarpaX::Languages::XML::Impl::Resource {
   use MarpaX::RFC::RFC3987;
 
   has xmlVersion => (is => 'ro',  isa => XmlVersion, required => 1);
-  has name       => (is => 'ro',  isa => Str, required => 1);
-  has identifier => (is => 'rwp', isa => URI|IRI, lazy => 1, builder => 1);
+  has identifier => (is => 'ro',  isa => Str, required => 1);
+  has impl       => (is => 'rwp', isa => URI|IRI, lazy => 1, builder => 1);
 
-  method _build_identifier( --> URI|IRI) {
+  method _build_impl( --> URI|IRI) {
     if ($self->xmlVersion eq '1.0') {
       return MarpaX::RFC::RFC3986->new($self->name); # URI
     } else {

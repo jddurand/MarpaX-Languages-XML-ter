@@ -11,8 +11,8 @@ use Moops;
 role MarpaX::Languages::XML::Role::Resource {
 
   requires 'xmlVersion';
-  requires 'name';
   requires 'identifier';
+  requires 'impl';
 }
 
 1;
