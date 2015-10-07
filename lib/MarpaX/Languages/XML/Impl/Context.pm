@@ -14,6 +14,7 @@ class MarpaX::Languages::XML::Impl::Context {
   use MarpaX::Languages::XML::Type::ImmediateAction -all;
   use MarpaX::Languages::XML::Type::Reader -all;
   use MarpaX::Languages::XML::Type::Recognizer -all;
+  use MooX::Role::Logger;
   use MooX::HandlesVia;
   use Types::Common::Numeric -all;
 
@@ -30,20 +31,31 @@ class MarpaX::Languages::XML::Impl::Context {
     my $recognizer = Marpa::R2::Scanless::R->new({grammar => $grammar->compiledGrammar});
     $recognizer->read(\'  ');
     $self->_set_recognizer($recognizer);
+    return;
   }
 
   method _trigger_grammar(Grammar $grammar --> Undef) {
     return $self->_startRecognizer($grammar);
+    return;
   }
 
   method restartRecognizer( --> Context) {
     #
     # I should understand series_restart() OOTD
     #
-    return $self->_startRecognizer($self->grammar);
+    $self->_startRecognizer($self->grammar);
+    return $self;
+  }
+
+  method activate(Str $eventName, Bool $value --> Context) {
+    my $onOff = $value ? 1 : 0;
+    $self->_logger->tracef('Setting event %s to %d', $eventName, $onOff);
+    $self->recognizer->activate($eventName, $onOff);
+    return $self;
   }
 
   with 'MarpaX::Languages::XML::Role::Context';
+  with 'MooX::Role::Logger';
 }
 
 1;
