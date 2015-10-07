@@ -180,42 +180,50 @@ class MarpaX::Languages::XML::Impl::Parser {
     return {
             document => {
                          completed => {
-                                       ENCNAME_COMPLETED                           => 'ENCNAME',
-                                       XMLDECL_END_COMPLETED                       => 'XMLDECL_END',
-                                       VERSIONNUM_COMPLETED                        => 'VERSIONNUM',
-                                       ELEMENT_START_COMPLETED                     => 'ELEMENT_START',  # Element push
-                                       CHARREF_END1_COMPLETED                       => 'CHARREF_END1',
-                                       CHARREF_END2_COMPLETED                       => 'CHARREF_END2',
-                                       $self->get_grammar_endEventName('document') => 'document'
+                                       ENCNAME_COMPLETED                              => 'ENCNAME',
+                                       XMLDECL_END_COMPLETED                          => 'XMLDECL_END',
+                                       VERSIONNUM_COMPLETED                           => 'VERSIONNUM',
+                                       ELEMENT_START_COMPLETED                        => 'ELEMENT_START',  # Element push
+                                       CHARREF_END1_COMPLETED                         => 'CHARREF_END1',
+                                       CHARREF_END2_COMPLETED                         => 'CHARREF_END2',
+                                       NOT_DQUOTEMANY_COMPLETED                       => 'NOT_DQUOTEMANY',
+                                       NOT_SQUOTEMANY_COMPLETED                       => 'NOT_SQUOTEMANY',
+                                       $self->get_grammar_endEventName('document')    => 'document'
                                       }
                         },
             element => {
                         completed => {
-                                      ELEMENT_START_COMPLETED                      => 'ELEMENT_START',  # Element push
-                                      CHARREF_END1_COMPLETED                       => 'CHARREF_END1',
-                                      CHARREF_END2_COMPLETED                       => 'CHARREF_END2',
-                                      $self->get_grammar_endEventName('element')   => 'element' # Element pop
+                                      ELEMENT_START_COMPLETED                         => 'ELEMENT_START',  # Element push
+                                      CHARREF_END1_COMPLETED                          => 'CHARREF_END1',
+                                      CHARREF_END2_COMPLETED                          => 'CHARREF_END2',
+                                      $self->get_grammar_endEventName('element')      => 'element' # Element pop
                                      }
                        },
             Char => {
                         completed => {
-                                      $self->get_grammar_endEventName('Char')      => 'Char'
+                                      $self->get_grammar_endEventName('Char')         => 'Char'
                                      }
+                       },
+            extSubset => {
+                          completed => {
+                                        $self->get_grammar_endEventName('extSubset')  => 'extSubset'
+                                       }
                        },
            };
   }
 
   method _build__grammars_endEventName( --> HashRef[Str]) {
     return {
-            document => 'document_COMPLETED',
-            element  => 'element_COMPLETED',
-            Char     => 'Char_COMPLETED'
+            document  => 'document_COMPLETED',
+            element   => 'element_COMPLETED',
+            Char      => 'Char_COMPLETED',
+            extSubset => 'extSubset_COMPLETED'
            };
   }
 
   method _build__grammars( --> HashRef[Grammar]) {
     my %grammars = ();
-    foreach (qw/document element Char/) {
+    foreach (qw/document element Char extSubset/) {
       $grammars{$_} = MarpaX::Languages::XML::Impl::Grammar->new(
                                                                  xmlVersion  => $self->xmlVersion,
                                                                  xmlns       => $self->xmlns,
@@ -273,12 +281,23 @@ class MarpaX::Languages::XML::Impl::Parser {
       my $got = $byteStream ? $self->_readBytesFromReader($context->reader, $self->blockSize) : $self->_readCharsFromReader($context->reader, $self->blockSize);
       if ($got > 0) {
         $innerBuffer .= $byteStream ? decode($context->encodingName, $MarpaX::Languages::XML::Impl::Parser::proxyBuffer, $ENCODE_CHECK) : $MarpaX::Languages::XML::Impl::Parser::proxyBuffer;
-        if (defined($localBuffer)) {
+        if (length($localBuffer)) {
           $localBuffer .= $innerBuffer;
         } else {
           $localBuffer = $innerBuffer;
         }
       } else {
+        #
+        # At EOF convert the remaining bytes when in byteStream mode
+        #
+        if ($byteStream) {
+          $innerBuffer .= decode($context->encodingName, $MarpaX::Languages::XML::Impl::Parser::proxyBuffer, $ENCODE_CHECK);
+          if (length($localBuffer)) {
+            $localBuffer .= $innerBuffer;
+          } else {
+            $localBuffer = $innerBuffer;
+          }
+        }
         #
         # EOF is considered fatal is not all bytes were converted
         #
@@ -596,7 +615,7 @@ class MarpaX::Languages::XML::Impl::Parser {
                   $self->_pop_context;
                   return $self;
                 } else {
-                  $self->throw('Parse', $context, "EOF but $startSymbol grammar is not over");
+                  $self->throw('Parse', $context, "EOF but $startSymbol grammar is not over (case 2)");
                 }
               }
               pos($MarpaX::Languages::XML::Impl::Parser::buffer) = 0;
